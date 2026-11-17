@@ -1,0 +1,2727 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sweet Scoop 3D: Artisan Gelato Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="var s=document.createElement('script');s.src='https://unpkg.com/three@0.128.0/build/three.min.js';document.head.appendChild(s);"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(180deg, #FFE4EF 0%, #FFF5F8 100%);
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100dvh;
+            z-index: 1;
+            touch-action: none;
+            cursor: grab;
+        }
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+        .glass-dock {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(255, 255, 255, 0.98);
+            box-shadow: 0 -6px 28px rgba(219, 39, 119, 0.16);
+        }
+        .glass-pill {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1.5px solid rgba(255, 255, 255, 0.96);
+            box-shadow: 0 4px 16px rgba(219, 39, 119, 0.12);
+        }
+        .safe-top {
+            padding-top: max(10px, env(safe-area-inset-top));
+        }
+        .safe-bottom {
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+        }
+        .bottom-sheet {
+            max-height: 46dvh;
+        }
+        .btn-tap {
+            transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.12s ease;
+        }
+        .btn-tap:active {
+            transform: scale(0.94);
+        }
+        .item-active {
+            border-color: #EC4899 !important;
+            background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%) !important;
+            color: #BE185D !important;
+            box-shadow: 0 3px 10px rgba(236, 72, 153, 0.28) !important;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Fullscreen 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Top Compact Header & 4 Step Pills -->
+    <header id="top-ui" class="fixed top-0 left-0 right-0 z-20 px-3 safe-top pointer-events-none flex flex-col gap-1.5">
+        <div class="flex items-center justify-between gap-1.5 max-w-xl mx-auto w-full">
+            <div class="glass-pill px-2.5 py-1 rounded-2xl flex items-center gap-1.5 pointer-events-auto">
+                <span class="text-base leading-none">🍨</span>
+                <div class="leading-none">
+                    <h1 class="text-xs font-bold text-pink-600">Sweet Scoop 3D</h1>
+                    <span class="text-[9px] text-slate-500">Artisan Gelato</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 pointer-events-auto">
+                <button onclick="cycleCameraAngle()" class="glass-pill btn-tap px-2.5 h-8 rounded-xl flex items-center gap-1 text-pink-600 text-[11px] font-semibold">
+                    <i class="fa-solid fa-camera-rotate"></i>
+                    <span>มุมกล้อง</span>
+                </button>
+                <button id="sound-btn" onclick="toggleSound()" class="glass-pill btn-tap w-8 h-8 rounded-xl flex items-center justify-center text-pink-600">
+                    <i class="fa-solid fa-volume-high text-xs"></i>
+                </button>
+                <button onclick="showResetModal(true)" class="glass-pill btn-tap w-8 h-8 rounded-xl flex items-center justify-center text-rose-500">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 4 Clickable Step Pills -->
+        <nav class="glass-pill p-1 rounded-2xl max-w-xl mx-auto w-full pointer-events-auto">
+            <div class="grid grid-cols-4 gap-1 text-center text-[11px] font-bold">
+                <button onclick="goToStage(1)" id="step-pill-1" class="py-1 px-1 rounded-xl bg-pink-500 text-white shadow-sm transition-all">1. ผสม</button>
+                <button onclick="goToStage(2)" id="step-pill-2" class="py-1 px-1 rounded-xl text-slate-500 transition-all">2. แช่เย็น</button>
+                <button onclick="goToStage(3)" id="step-pill-3" class="py-1 px-1 rounded-xl text-slate-500 transition-all">3. ตัก & จัดวาง</button>
+                <button onclick="goToStage(4)" id="step-pill-4" class="py-1 px-1 rounded-xl text-slate-500 transition-all">4. แต่งหน้า</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-banner" class="fixed top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 opacity-0 -translate-y-2 w-[92%] max-w-sm text-center">
+        <div class="inline-block glass-pill px-3.5 py-1 rounded-full text-xs font-semibold text-pink-700 border-pink-200">
+            <span id="toast-text">เลือกส่วนผสมใส่ชามได้เลย!</span>
+        </div>
+    </div>
+
+    <!-- Bottom Mobile-First Floating Dock -->
+    <main id="bottom-ui" class="fixed bottom-0 left-0 right-0 z-20 px-2.5 safe-bottom pointer-events-none">
+        <div class="max-w-xl mx-auto w-full pointer-events-auto">
+
+            <!-- ================= STAGE 1: MIXING STATION ================= -->
+            <section id="panel-stage-1" class="glass-dock bottom-sheet rounded-3xl p-2.5 sm:p-3.5 flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-1">
+                    <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        <button onclick="switchMixTab('base')" id="mix-tab-base" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-500 text-white whitespace-nowrap">🥛 เบสครีม</button>
+                        <button onclick="switchMixTab('choc')" id="mix-tab-choc" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">🍫 ช็อกโกแลต</button>
+                        <button onclick="switchMixTab('fruit')" id="mix-tab-fruit" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">🍓 ผลไม้</button>
+                        <button onclick="switchMixTab('tea')" id="mix-tab-tea" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">🍵 ชา & มินต์</button>
+                    </div>
+                    <button onclick="clearBowl()" class="text-[11px] text-rose-600 font-bold px-2.5 py-1 rounded-full bg-rose-50 whitespace-nowrap">ล้างชาม</button>
+                </div>
+
+                <!-- Scrollable Ingredient Buttons -->
+                <div id="ingredient-list" class="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
+
+                <!-- Mix Progress -->
+                <div class="flex items-center justify-between gap-2">
+                    <span id="flavor-summary-text" class="text-[11px] font-semibold text-slate-600 truncate flex-1">กดเลือกเบสครีมและรสชาติใส่ชามด้านบน</span>
+                    <span id="mix-percent-text" class="text-[11px] font-bold text-pink-600">0%</span>
+                </div>
+                <div class="w-full h-2 bg-pink-100 rounded-full overflow-hidden">
+                    <div id="mix-progress-bar" class="h-full bg-gradient-to-r from-pink-400 to-rose-500 w-0 transition-all duration-100"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
+                    <button id="hold-mix-btn"
+                        onpointerdown="startStirring()"
+                        onpointerup="stopStirring()"
+                        onpointerleave="stopStirring()"
+                        onpointercancel="stopStirring()"
+                        class="btn-tap py-2.5 px-2.5 rounded-2xl bg-amber-400 active:bg-amber-500 text-amber-950 font-bold text-xs shadow flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-blender"></i> กดค้างเพื่อคนส่วนผสม
+                    </button>
+
+                    <button id="to-stage-2-btn" onclick="proceedToChiller()"
+                        class="btn-tap py-2.5 px-2.5 rounded-2xl bg-slate-300 text-slate-500 font-bold text-xs shadow flex items-center justify-center gap-1.5 transition-colors">
+                        นำเข้าตู้แช่เย็น ❄️
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= STAGE 2: BLAST CHILLER ================= -->
+            <section id="panel-stage-2" class="hidden glass-dock bottom-sheet rounded-3xl p-3 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xs sm:text-sm font-bold text-sky-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-snowflake text-sky-500"></i> ตู้แช่แข็งเจลาโต้ (Blast Chiller)
+                        </h2>
+                        <p class="text-[11px] text-slate-500">กดปุ่มเร่งความเย็นค้างไว้จนถึง -24°C</p>
+                    </div>
+                    <div class="bg-sky-900 text-cyan-300 px-3 py-1 rounded-xl font-mono font-bold text-base shadow-inner">
+                        <span id="temp-display">+4°C</span>
+                    </div>
+                </div>
+
+                <div class="w-full h-2.5 bg-sky-100 rounded-full overflow-hidden">
+                    <div id="freeze-progress-bar" class="h-full bg-gradient-to-r from-sky-400 to-indigo-500 w-0 transition-all duration-100"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
+                    <button id="hold-freeze-btn"
+                        onpointerdown="startFreezing()"
+                        onpointerup="stopFreezing()"
+                        onpointerleave="stopFreezing()"
+                        onpointercancel="stopFreezing()"
+                        class="btn-tap py-2.5 px-2.5 rounded-2xl bg-sky-500 active:bg-sky-600 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-icicles"></i> กดค้างเร่งความเย็น ❄️
+                    </button>
+
+                    <button id="to-stage-3-btn" onclick="goToStage(3)"
+                        class="btn-tap py-2.5 px-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5">
+                        เริ่มตักไอศกรีม 🍨
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= STAGE 3: INTERACTIVE SCOOPING + PLACEMENT + EDITING ================= -->
+            <section id="panel-stage-3" class="hidden glass-dock bottom-sheet rounded-3xl p-2.5 sm:p-3 flex flex-col gap-1.5">
+                <!-- Header & Scoop Fill -->
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 flex-1">
+                        <span class="text-[11px] font-bold text-pink-600 whitespace-nowrap">🥄 ลากบนถาด:</span>
+                        <div class="flex-1 h-2 bg-pink-100 rounded-full overflow-hidden">
+                            <div id="scoop-fill-bar" class="h-full bg-gradient-to-r from-pink-400 to-purple-500 w-0 transition-all duration-75"></div>
+                        </div>
+                        <span id="scoop-fill-pct" class="text-[10px] font-bold text-pink-600 w-7 text-right">0%</span>
+                    </div>
+                    <span class="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                        <span id="scoop-count-text">0</span>/6 ลูก
+                    </span>
+                </div>
+
+                <!-- Target Placement Selector -->
+                <div class="flex items-center gap-1 bg-pink-50/90 p-1 rounded-2xl border border-pink-100">
+                    <span class="text-[10px] font-bold text-pink-700 pl-1.5 pr-0.5 whitespace-nowrap">📍 จุดวาง:</span>
+                    <button onclick="setPlacementSlot('stack')" id="slot-btn-stack" class="flex-1 py-1 rounded-xl text-[10px] font-bold bg-pink-500 text-white shadow-sm">ซ้อนบนสุด</button>
+                    <button onclick="setPlacementSlot('left')" id="slot-btn-left" class="flex-1 py-1 rounded-xl text-[10px] font-bold text-slate-600">ซ้าย</button>
+                    <button onclick="setPlacementSlot('center')" id="slot-btn-center" class="flex-1 py-1 rounded-xl text-[10px] font-bold text-slate-600">กลาง</button>
+                    <button onclick="setPlacementSlot('right')" id="slot-btn-right" class="flex-1 py-1 rounded-xl text-[10px] font-bold text-slate-600">ขวา</button>
+                </div>
+
+                <!-- Selected Scoop Editor Bar -->
+                <div id="scoop-editor-bar" class="hidden flex items-center justify-between gap-1 bg-amber-50/95 px-2 py-1 rounded-2xl border border-amber-200">
+                    <span id="selected-scoop-label" class="text-[10px] font-bold text-amber-900 whitespace-nowrap">✏️ ลูกที่ 1:</span>
+                    <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        <button onclick="nudgeSelectedScoop(-0.14, 0)" class="btn-tap px-1.5 py-0.5 rounded-lg bg-white border border-amber-200 text-[10px] font-bold text-slate-700" title="เลื่อนซ้าย">⬅️</button>
+                        <button onclick="nudgeSelectedScoop(0.14, 0)" class="btn-tap px-1.5 py-0.5 rounded-lg bg-white border border-amber-200 text-[10px] font-bold text-slate-700" title="เลื่อนขวา">➡️</button>
+                        <button onclick="nudgeSelectedScoop(0, 0.12)" class="btn-tap px-1.5 py-0.5 rounded-lg bg-white border border-amber-200 text-[10px] font-bold text-slate-700" title="เลื่อนขึ้น">⬆️</button>
+                        <button onclick="nudgeSelectedScoop(0, -0.12)" class="btn-tap px-1.5 py-0.5 rounded-lg bg-white border border-amber-200 text-[10px] font-bold text-slate-700" title="เลื่อนลง">⬇️</button>
+                        <button onclick="scaleSelectedScoop(-0.1)" class="btn-tap px-1.5 py-0.5 rounded-lg bg-white border border-amber-200 text-[10px] font-bold text-slate-700">เล็ก-</button>
+                        <button onclick="scaleSelectedScoop(0.1)" class="btn-tap px-1.5 py-0.5 rounded-lg bg-white border border-amber-200 text-[10px] font-bold text-slate-700">ใหญ่+</button>
+                        <button onclick="deleteSelectedScoop()" class="btn-tap px-2 py-0.5 rounded-lg bg-rose-500 text-white text-[10px] font-bold whitespace-nowrap">ลบลูกนี้</button>
+                    </div>
+                </div>
+
+                <!-- 8 Container Selector Pills -->
+                <div id="stage3-container-list" class="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
+
+                <!-- Bottom Action Controls -->
+                <div class="flex items-center gap-1.5 pt-0.5">
+                    <button onclick="makeAnotherFlavor()" class="btn-tap px-2.5 py-2 rounded-2xl bg-amber-100 text-amber-800 font-bold text-[11px] whitespace-nowrap">
+                        + ผสมรสใหม่
+                    </button>
+                    <button onclick="undoLastScoop()" class="btn-tap px-2 py-2 rounded-2xl bg-rose-50 text-rose-600 font-bold text-[11px] whitespace-nowrap">
+                        ย้อนกลับ
+                    </button>
+                    <button onclick="smoothGelatoPan()" class="btn-tap px-2 py-2 rounded-2xl bg-slate-100 text-slate-600 font-semibold text-[11px] whitespace-nowrap">
+                        ปาดถาด
+                    </button>
+                    <button id="to-stage-4-btn" onclick="goToStage(4)"
+                        class="btn-tap flex-1 py-2 px-2 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs shadow flex items-center justify-center gap-1 whitespace-nowrap">
+                        ไปแต่งหน้าท็อปปิ้ง →
+                    </button>
+                </div>
+            </section>
+
+            <!-- ================= STAGE 4: RIBBON SAUCES, 22 TOPPINGS & PHOTO MODE ================= -->
+            <section id="panel-stage-4" class="hidden glass-dock bottom-sheet rounded-3xl p-2.5 sm:p-3 flex flex-col gap-1.5">
+                <div class="flex items-center justify-between gap-1">
+                    <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        <button onclick="switchDecorTab('syrup')" id="decor-tab-syrup" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-500 text-white whitespace-nowrap">〰️ เส้นซอส (8)</button>
+                        <button onclick="switchDecorTab('topping')" id="decor-tab-topping" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">🍒 ท็อปปิ้ง (22)</button>
+                        <button onclick="switchDecorTab('container')" id="decor-tab-container" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap">🧇 ภาชนะ (8)</button>
+                    </div>
+                    <div id="sauce-tools-group" class="flex items-center gap-1">
+                        <button onclick="autoZigzagDrizzle()" class="btn-tap px-2 py-1 rounded-xl bg-amber-100 text-amber-800 text-[10px] font-bold whitespace-nowrap">〰️ บีบเส้นซิกแซก</button>
+                        <button onclick="undoLastSauceStroke()" class="btn-tap px-2 py-1 rounded-xl bg-rose-50 text-rose-600 text-[10px] font-bold whitespace-nowrap">ลบเส้นล่าสุด</button>
+                    </div>
+                    <div id="topping-tools-group" class="hidden flex items-center gap-1">
+                        <button onclick="autoSprinkleToppings()" class="btn-tap px-2 py-1 rounded-xl bg-amber-100 text-amber-800 text-[10px] font-bold whitespace-nowrap">✨ โรยอัตโนมัติ</button>
+                        <button onclick="clearAllToppings()" class="btn-tap px-2 py-1 rounded-xl bg-rose-50 text-rose-600 text-[10px] font-bold whitespace-nowrap">ล้าง</button>
+                    </div>
+                </div>
+
+                <!-- Topping Sub-Tabs -->
+                <div id="topping-subtabs" class="hidden flex items-center gap-1 overflow-x-auto no-scrollbar">
+                    <button onclick="switchToppingSubTab('fruit')" id="top-sub-fruit" class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-500 text-white whitespace-nowrap">🍓 ผลไม้สด (7)</button>
+                    <button onclick="switchToppingSubTab('bakery')" id="top-sub-bakery" class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-700 whitespace-nowrap">🍪 ขนม & เบเกอรี่ (8)</button>
+                    <button onclick="switchToppingSubTab('crunch')" id="top-sub-crunch" class="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-700 whitespace-nowrap">✨ โรยหน้า (7)</button>
+                </div>
+
+                <!-- Scrollable Decor Pills -->
+                <div id="decor-items-list" class="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
+
+                <!-- Bottom Row -->
+                <div class="flex items-center justify-between gap-2 pt-0.5">
+                    <button onclick="goToStage(3)" class="btn-tap px-2.5 py-2 rounded-2xl bg-amber-100 text-amber-800 font-bold text-[11px] whitespace-nowrap">
+                        🥄 ตักเพิ่ม
+                    </button>
+                    <span id="decor-hint-text" class="text-[10px] text-pink-700 font-semibold truncate flex-1">
+                        ลากนิ้วบนไอติมเพื่อวาดเส้นซอส 3D หรือกด "บีบเส้นซิกแซก"
+                    </span>
+                    <button onclick="enterPhotoMode()" class="btn-tap px-3.5 py-2 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs shadow flex items-center gap-1.5 whitespace-nowrap">
+                        📸 ถ่ายรูปผลงาน
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Photo Mode Overlay -->
+    <div id="photo-mode-ui" class="hidden fixed inset-0 z-30 pointer-events-none flex flex-col justify-between p-3 safe-top safe-bottom">
+        <div class="flex justify-between items-center pointer-events-auto">
+            <button onclick="exitPhotoMode()" class="glass-pill btn-tap px-3.5 py-2 rounded-2xl text-slate-700 font-bold text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-left"></i> กลับไปแต่งหน้า
+            </button>
+            <div class="glass-pill px-3 py-1 rounded-full text-[11px] font-semibold text-pink-600">
+                ลากนิ้วหมุนดูไอติม 360° ได้เลย!
+            </div>
+        </div>
+        <div class="flex justify-center pb-2 pointer-events-auto">
+            <button onclick="captureSnapshot()" class="btn-tap px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-sm shadow-xl flex items-center gap-2 border-2 border-white">
+                <i class="fa-solid fa-camera"></i> บันทึกรูปภาพ (PNG)
+            </button>
+        </div>
+    </div>
+
+    <!-- Reset Modal -->
+    <div id="reset-modal" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-dock rounded-3xl p-5 max-w-xs w-full text-center flex flex-col gap-3">
+            <div class="text-3xl">🍨</div>
+            <h3 class="text-base font-bold text-slate-800">เริ่มทำไอศกรีมใหม่ทั้งหมด?</h3>
+            <p class="text-xs text-slate-500">ส่วนผสม ไอศกรีมที่ตัก เส้นซอส และท็อปปิ้งทั้งหมดจะถูกรีเซ็ตกลับไปขั้นตอนแรก</p>
+            <div class="flex gap-2 pt-1">
+                <button onclick="showResetModal(false)" class="btn-tap flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 font-semibold text-xs">ยกเลิก</button>
+                <button onclick="resetEntireGame()" class="btn-tap flex-1 py-2.5 rounded-2xl bg-rose-500 text-white font-bold text-xs">เริ่มใหม่เลย</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. DATA CATALOG (INGREDIENTS, 8 CONTAINERS, 8 SAUCES, 22 TOPPINGS)
+         * ============================================================================
+         */
+        const INGREDIENTS = [
+            // เบสครีม
+            { id: 'milk', name: 'นมสดฮอกไกโด', cat: 'base', emoji: '🥛', color: '#FFFDF9', weight: 0.32, chunk: null },
+            { id: 'cream', name: 'วิปปิ้งครีม', cat: 'base', emoji: '🍦', color: '#FFF8E7', weight: 0.32, chunk: null },
+            { id: 'honey', name: 'น้ำผึ้งป่า', cat: 'base', emoji: '🍯', color: '#F59E0B', weight: 0.7, chunk: null },
+            // ช็อกโกแลตเข้มข้น 7 แบบ
+            { id: 'darkchoc70', name: 'ดาร์กช็อกโกแลต 70%', cat: 'choc', emoji: '🍫', color: '#241006', weight: 3.6, chunk: '#140702', shape: 'choc' },
+            { id: 'dutchcocoa', name: 'ผงโกโก้ดัตช์แท้', cat: 'choc', emoji: '🫘', color: '#1F0C04', weight: 4.0, chunk: null },
+            { id: 'milkchoc', name: 'มิลก์ช็อกโกแลต', cat: 'choc', emoji: '🤎', color: '#472210', weight: 2.8, chunk: '#2E1306', shape: 'choc' },
+            { id: 'nutella', name: 'นูเทลล่าเฮเซลนัท', cat: 'choc', emoji: '🌰', color: '#381A0B', weight: 2.9, chunk: '#854D0E', shape: 'nut' },
+            { id: 'brownie_mix', name: 'บราวนี่ฟัดจ์เข้มข้น', cat: 'choc', emoji: '🟫', color: '#260F05', weight: 3.4, chunk: '#140702', shape: 'brownie' },
+            { id: 'chocchip', name: 'ช็อกโกแลตชิป', cat: 'choc', emoji: '🍪', color: '#5A321A', weight: 1.8, chunk: '#1C0A03', shape: 'chip' },
+            { id: 'whitechoc', name: 'ไวท์ช็อกโกแลต', cat: 'choc', emoji: '🤍', color: '#F6E8CE', weight: 1.1, chunk: '#EAD2AC', shape: 'choc' },
+            // ผลไม้สด
+            { id: 'strawberry', name: 'สตรอว์เบอร์รี', cat: 'fruit', emoji: '🍓', color: '#F43F5E', weight: 1.8, chunk: '#BE123C' },
+            { id: 'mango', name: 'มะม่วงสุก', cat: 'fruit', emoji: '🥭', color: '#F59E0B', weight: 1.8, chunk: '#D97706' },
+            { id: 'banana', name: 'กล้วยหอม', cat: 'fruit', emoji: '🍌', color: '#FACC15', weight: 1.5, chunk: '#CA8A04' },
+            { id: 'blueberry', name: 'บลูเบอร์รี', cat: 'fruit', emoji: '🫐', color: '#4F46E5', weight: 2.0, chunk: '#312E81' },
+            { id: 'lemon', name: 'เลมอน', cat: 'fruit', emoji: '🍋', color: '#EAB308', weight: 1.5, chunk: '#FEF08A' },
+            { id: 'watermelon', name: 'แตงโม', cat: 'fruit', emoji: '🍉', color: '#FB7185', weight: 1.6, chunk: '#E11D48' },
+            // ชา & มินต์ & ถั่ว
+            { id: 'matcha', name: 'มัทฉะอูจิ', cat: 'tea', emoji: '🍵', color: '#3F6212', weight: 2.3, chunk: '#1A2E05' },
+            { id: 'thaitea', name: 'ชาไทยเข้มข้น', cat: 'tea', emoji: '🧋', color: '#C2410C', weight: 2.2, chunk: '#7C2D12' },
+            { id: 'earlgrey', name: 'เอิร์ลเกรย์', cat: 'tea', emoji: '🫖', color: '#926C44', weight: 1.7, chunk: '#451A03' },
+            { id: 'mint', name: 'เปปเปอร์มินต์', cat: 'tea', emoji: '🌿', color: '#10B981', weight: 1.8, chunk: '#047857' },
+            { id: 'vanilla', name: 'วนิลลามาดากัสการ์', cat: 'tea', emoji: '🌼', color: '#FDE68A', weight: 1.2, chunk: '#291204' },
+            { id: 'pistachio', name: 'พิสตาชิโออบ', cat: 'tea', emoji: '🟢', color: '#65A30D', weight: 2.0, chunk: '#365314' }
+        ];
+
+        const CONTAINERS = [
+            { id: 'waffle', name: 'โคนวาฟเฟิลกรอบ', emoji: '🍦' },
+            { id: 'chococone', name: 'โคนช็อกโกแลต', emoji: '🤎' },
+            { id: 'cup', name: 'ถ้วยคาเฟ่', emoji: '🍨' },
+            { id: 'parfait', name: 'ถ้วยแก้วพาร์เฟต์', emoji: '🥂' },
+            { id: 'brioche', name: 'ขนมปังบริยอชผ่าครึ่ง', emoji: '🍔' },
+            { id: 'toast', name: 'ฮันนี่โทสต์เนยฉ่ำ', emoji: '🍞' },
+            { id: 'belgian', name: 'วาฟเฟิลเบลเยียม', emoji: '🧇' },
+            { id: 'cookiebowl', name: 'ถ้วยคุกกี้ช็อกชิป', emoji: '🍪' }
+        ];
+
+        const SAUCES = [
+            { id: 'choc', name: 'ช็อกโกแลตฟัดจ์', emoji: '🍫', color: '#241006' },
+            { id: 'caramel', name: 'คาราเมลทองคำ', emoji: '🍮', color: '#D97706' },
+            { id: 'strawberry', name: 'แยมสตรอว์เบอร์รี', emoji: '🍓', color: '#E11D48' },
+            { id: 'condensed', name: 'นมข้นหวาน', emoji: '🥛', color: '#FFFBEB' },
+            { id: 'matcha', name: 'มัทฉะลาเต้', emoji: '🍵', color: '#3F6212' },
+            { id: 'blueberry', name: 'บลูเบอร์รี', emoji: '🫐', color: '#4338CA' },
+            { id: 'mango', name: 'มะม่วงเสาวรส', emoji: '🥭', color: '#F59E0B' },
+            { id: 'whitechoc', name: 'ช็อกโกแลตขาว', emoji: '🤍', color: '#FDF8F0' }
+        ];
+
+        const TOPPINGS = [
+            // ผลไม้สด (7)
+            { id: 'straw_half', name: 'สตรอว์เบอร์รีผ่าซีก', sub: 'fruit', emoji: '🍓' },
+            { id: 'cherry', name: 'เชอร์รีเชื่อม', sub: 'fruit', emoji: '🍒' },
+            { id: 'blueberry_top', name: 'บลูเบอร์รีสด', sub: 'fruit', emoji: '🫐' },
+            { id: 'banana_slice', name: 'กล้วยหอม', sub: 'fruit', emoji: '🍌' },
+            { id: 'kiwi', name: 'กีวีสด', sub: 'fruit', emoji: '🥝' },
+            { id: 'mango_cube', name: 'มะม่วงสุก', sub: 'fruit', emoji: '🥭' },
+            { id: 'orange', name: 'ส้มแมนดาริน', sub: 'fruit', emoji: '🍊' },
+            // ขนม & เบเกอรี่ (8)
+            { id: 'pocky', name: 'ป๊อกกี้สตรอว์เบอร์รี', sub: 'bakery', emoji: '🥢' },
+            { id: 'wafer', name: 'เวเฟอร์โรล', sub: 'bakery', emoji: '🥖' },
+            { id: 'oreo', name: 'คุกกี้โอรีโอ้', sub: 'bakery', emoji: '⚫' },
+            { id: 'macaron', name: 'มาการอง', sub: 'bakery', emoji: '🟣' },
+            { id: 'brownie', name: 'บราวนี่คิวบ์', sub: 'bakery', emoji: '🟫' },
+            { id: 'marshmallow', name: 'มาร์ชเมลโลว์', sub: 'bakery', emoji: '☁️' },
+            { id: 'donut', name: 'โดนัทจิ๋ว', sub: 'bakery', emoji: '🍩' },
+            { id: 'bear', name: 'แครกเกอร์หมี', sub: 'bakery', emoji: '🧸' },
+            // โรยหน้า (7)
+            { id: 'sprinkles', name: 'เรนโบว์สปริงเคิล', sub: 'crunch', emoji: '🌈' },
+            { id: 'choc_chips', name: 'ช็อกโกแลตชิป', sub: 'crunch', emoji: '💧' },
+            { id: 'almond', name: 'อัลมอนด์สไลซ์', sub: 'crunch', emoji: '🥜' },
+            { id: 'boba', name: 'ไข่มุกบราวน์ชูการ์', sub: 'crunch', emoji: '🧋' },
+            { id: 'coconut', name: 'มะพร้าวคั่ว', sub: 'crunch', emoji: '🥥' },
+            { id: 'mint_leaf', name: 'ใบสะระแหน่', sub: 'crunch', emoji: '🌿' },
+            { id: 'gold_leaf', name: 'ทองคำเปลว', sub: 'crunch', emoji: '✨' }
+        ];
+
+        /**
+         * ============================================================================
+         * 2. PROCEDURAL CANVAS TEXTURES FOR REALISTIC CONTAINERS & FLAVOR TAG
+         * ============================================================================
+         */
+        function createWaffleTexture(baseHex, lineHex) {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = baseHex;
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let i = 0; i < 600; i++) {
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+                ctx.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+            }
+
+            ctx.strokeStyle = lineHex;
+            ctx.lineWidth = 4;
+            const step = 32;
+            for (let i = -256; i < 512; i += step) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i + 256, 256);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(i + 256, 0);
+                ctx.lineTo(i, 256);
+                ctx.stroke();
+            }
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(3, 2);
+            tex.encoding = THREE.sRGBEncoding;
+            return tex;
+        }
+
+        function createBakedBreadTexture(baseHex, spotHex) {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = baseHex;
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let i = 0; i < 900; i++) {
+                ctx.fillStyle = spotHex;
+                ctx.globalAlpha = 0.08 + Math.random() * 0.14;
+                ctx.beginPath();
+                ctx.arc(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.encoding = THREE.sRGBEncoding;
+            return tex;
+        }
+
+        let waffleTex, chocoWaffleTex, breadCrustTex, breadCrumbTex, cookieTex;
+        let flavorTagCanvas, flavorTagCtx, flavorTagTexture;
+
+        function initProceduralTextures() {
+            waffleTex = createWaffleTexture('#D9822B', '#8C4308');
+            chocoWaffleTex = createWaffleTexture('#3B1A0A', '#1B0903');
+            breadCrustTex = createBakedBreadTexture('#B45309', '#5C2503');
+            breadCrumbTex = createBakedBreadTexture('#FEF3C7', '#D97706');
+            cookieTex = createBakedBreadTexture('#A1551E', '#451A03');
+
+            flavorTagCanvas = document.createElement('canvas');
+            flavorTagCanvas.width = 256;
+            flavorTagCanvas.height = 128;
+            flavorTagCtx = flavorTagCanvas.getContext('2d');
+            flavorTagTexture = new THREE.CanvasTexture(flavorTagCanvas);
+            flavorTagTexture.encoding = THREE.sRGBEncoding;
+            updateFlavorTagTexture('ARTISAN GELATO');
+        }
+
+        function updateFlavorTagTexture(labelText) {
+            if (!flavorTagCtx) return;
+            const ctx = flavorTagCtx;
+            ctx.fillStyle = '#FFFDF9';
+            ctx.fillRect(0, 0, 256, 128);
+
+            ctx.strokeStyle = '#EC4899';
+            ctx.lineWidth = 8;
+            ctx.strokeRect(10, 10, 236, 108);
+
+            ctx.fillStyle = '#BE185D';
+            ctx.font = 'bold 24px Kanit, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const cleanText = (labelText || 'ARTISAN GELATO').slice(0, 16);
+            ctx.fillText(cleanText, 128, 54);
+
+            ctx.fillStyle = '#64748B';
+            ctx.font = '600 15px Kanit, sans-serif';
+            ctx.fillText('FRESH GELATO', 128, 90);
+
+            flavorTagTexture.needsUpdate = true;
+        }
+
+        /**
+         * ============================================================================
+         * 3. GAME STATE
+         * ============================================================================
+         */
+        const gameState = {
+            stage: 1,
+            mixTab: 'base',
+            addedIngredients: [],
+            blendedColor: new THREE.Color('#FFFDF9'),
+            mixProgress: 0,
+            isStirring: false,
+
+            temperature: 4,
+            freezeProgress: 0,
+            isFreezing: false,
+
+            isDraggingScoop: false,
+            lastScoopWorldPos: null,
+            scoopFillAmount: 0,
+            scoopTriggerAngle: 0, // For mechanical trigger lever animation
+            placementSlot: 'stack', // 'stack' | 'left' | 'center' | 'right'
+            servedScoops: [],
+            selectedScoopIndex: -1,
+            containerType: 'waffle',
+            panHideProgress: 0, // 0 = visible on counter, 1 = smoothly retracted & hidden
+
+            decorTab: 'syrup',
+            toppingSubTab: 'fruit',
+            selectedSauce: 'choc',
+            selectedTopping: 'straw_half',
+            isDrizzlingSauce: false,
+            currentSauceStrokePoints: [],
+            currentSauceStrokeGroup: null,
+            sauceStrokes: [],
+            isPhotoMode: false,
+
+            soundEnabled: true
+        };
+
+        /**
+         * ============================================================================
+         * 4. PROCEDURAL WEB AUDIO SYNTHESIZER
+         * ============================================================================
+         */
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) audioCtx = new AC();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const icon = document.querySelector('#sound-btn i');
+            icon.className = gameState.soundEnabled ? 'fa-solid fa-volume-high text-xs' : 'fa-solid fa-volume-xmark text-xs text-slate-400';
+            if (gameState.soundEnabled) playSound('pop');
+        }
+
+        let lastAudioTime = 0;
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            if ((type === 'whisk' || type === 'freeze' || type === 'scoop' || type === 'drizzle') && now - lastAudioTime < 0.08) return;
+            lastAudioTime = now;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'plop') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(340, now);
+                osc.frequency.exponentialRampToValueAtTime(620, now + 0.08);
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+                osc.start(now);
+                osc.stop(now + 0.11);
+            } else if (type === 'whisk') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220 + Math.sin(now * 25) * 60, now);
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } else if (type === 'freeze') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(980 + Math.random() * 240, now);
+                gain.gain.setValueAtTime(0.035, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                osc.start(now);
+                osc.stop(now + 0.09);
+            } else if (type === 'scoop') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(190 + Math.random() * 50, now);
+                osc.frequency.linearRampToValueAtTime(260, now + 0.06);
+                gain.gain.setValueAtTime(0.035, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+                osc.start(now);
+                osc.stop(now + 0.07);
+            } else if (type === 'drizzle') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(360 + Math.sin(now * 20) * 50, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'pop') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(540, now);
+                osc.frequency.exponentialRampToValueAtTime(920, now + 0.07);
+                gain.gain.setValueAtTime(0.11, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'success') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.07);
+                osc.frequency.setValueAtTime(783.99, now + 0.14);
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                osc.start(now);
+                osc.stop(now + 0.28);
+            } else if (type === 'camera') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1100, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.07);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 5. THREE.JS 3D SCENE & PORTRAIT-OPTIMIZED ORBIT CAMERA
+         * ============================================================================
+         */
+        let scene, camera, renderer;
+        let stage1Group, stage2Group, stage3Group;
+        let bowlLiquidMesh, whiskGroup, mixChunksGroup;
+        let chillerPanLiquidMesh, chillerFrostGroup, vaporParticles = [];
+        let gelatoPanRootGroup, gelatoPanSurfaceMesh, gelatoPanGeo, initialPanVertices, gelatoPanChunksGroup;
+        let scoopToolGroup, scoopTriggerLeverGroup, scoopSweeperBladeMesh, growingScoopBallMesh;
+        let servingStandGroup, containerMesh, servedIceCreamGroup, targetSlotMarkerMesh, selectionHighlightRing;
+        let sauceStrokesContainer, toppingsContainer, sauceBottleGroup, sauceStreamMesh;
+
+        const camOrbit = {
+            theta: 0.0,
+            phi: 0.85,
+            radius: 8.6,
+            targetTheta: 0.0,
+            targetPhi: 0.85,
+            targetRadius: 8.6,
+            targetLookAt: new THREE.Vector3(0, 0.1, 0),
+            currentLookAt: new THREE.Vector3(0, 0.1, 0),
+            isOrbitDragging: false,
+            prevPointer: { x: 0, y: 0 },
+            pinchStartDist: 0,
+            pinchStartRadius: 8.6,
+            presetIndex: 0
+        };
+
+        function isPortraitMobile() {
+            return window.innerHeight > window.innerWidth;
+        }
+
+        function initThreeJS() {
+            initProceduralTextures();
+
+            const container = document.getElementById('canvas-container');
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#FFF0F5');
+            scene.fog = new THREE.FogExp2('#FFF0F5', 0.014);
+
+            camera = new THREE.PerspectiveCamera(44, w / h, 0.1, 100);
+            updateCameraFromOrbit(true);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.06;
+
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Studio Pastel Lighting
+            scene.add(new THREE.AmbientLight(0xfff7fa, 0.68));
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffd6e0, 0.58);
+            hemiLight.position.set(0, 12, 0);
+            scene.add(hemiLight);
+
+            const keyLight = new THREE.DirectionalLight(0xfffaf0, 0.96);
+            keyLight.position.set(5, 11, 6);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 1024;
+            keyLight.shadow.mapSize.height = 1024;
+            const d = 6.5;
+            keyLight.shadow.camera.left = -d;
+            keyLight.shadow.camera.right = d;
+            keyLight.shadow.camera.top = d;
+            keyLight.shadow.camera.bottom = -d;
+            keyLight.shadow.bias = -0.0005;
+            scene.add(keyLight);
+
+            // Cafe Countertop
+            const table = new THREE.Mesh(
+                new THREE.CylinderGeometry(7.2, 7.2, 0.4, 64),
+                new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 })
+            );
+            table.position.y = -0.2;
+            table.receiveShadow = true;
+            scene.add(table);
+
+            const tableRim = new THREE.Mesh(
+                new THREE.TorusGeometry(7.2, 0.07, 16, 64),
+                new THREE.MeshStandardMaterial({ color: 0xffb6c1, roughness: 0.3 })
+            );
+            tableRim.rotation.x = Math.PI / 2;
+            tableRim.position.y = 0;
+            scene.add(tableRim);
+
+            buildStage1MixingStation();
+            buildStage2ChillerStation();
+            buildStage3And4ScoopingStation();
+
+            activateStageVisuals(1);
+            window.addEventListener('resize', onWindowResize);
+            setupPointerInteractions();
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            resetCamera(false);
+        }
+
+        function updateCameraFromOrbit(instant = false) {
+            if (!camera) return;
+            const f = instant ? 1.0 : 0.16;
+            camOrbit.theta += (camOrbit.targetTheta - camOrbit.theta) * f;
+            camOrbit.phi += (camOrbit.targetPhi - camOrbit.phi) * f;
+            camOrbit.radius += (camOrbit.targetRadius - camOrbit.radius) * f;
+            camOrbit.currentLookAt.lerp(camOrbit.targetLookAt, f);
+
+            const sinPhi = Math.sin(camOrbit.phi);
+            const cosPhi = Math.cos(camOrbit.phi);
+            camera.position.set(
+                camOrbit.currentLookAt.x + camOrbit.radius * sinPhi * Math.sin(camOrbit.theta),
+                camOrbit.currentLookAt.y + camOrbit.radius * cosPhi,
+                camOrbit.currentLookAt.z + camOrbit.radius * sinPhi * Math.cos(camOrbit.theta)
+            );
+            camera.lookAt(camOrbit.currentLookAt);
+        }
+
+        function cycleCameraAngle() {
+            const presets = [
+                { theta: 0.0, phi: 0.85, label: 'มุมปกติ 3D' },
+                { theta: 0.0, phi: 0.35, label: 'มุมมองจากด้านบน' },
+                { theta: 0.68, phi: 0.94, label: 'มุมใกล้ด้านขวา' },
+                { theta: -0.68, phi: 0.94, label: 'มุมใกล้ด้านซ้าย' }
+            ];
+            camOrbit.presetIndex = (camOrbit.presetIndex + 1) % presets.length;
+            const p = presets[camOrbit.presetIndex];
+            camOrbit.targetTheta = p.theta;
+            camOrbit.targetPhi = p.phi;
+            if (camOrbit.presetIndex === 2 || camOrbit.presetIndex === 3) {
+                camOrbit.targetRadius = isPortraitMobile() ? 7.4 : 6.4;
+            } else {
+                resetCamera(false);
+            }
+            playSound('pop');
+            showToast(`📷 เปลี่ยนเป็น${p.label}`);
+        }
+
+        function resetCamera(resetAngles = true) {
+            const portrait = isPortraitMobile();
+            const yShift = portrait ? -0.95 : 0.35;
+            const rScale = portrait ? 1.15 : 1.0;
+
+            if (resetAngles) {
+                camOrbit.targetTheta = 0.0;
+                camOrbit.presetIndex = 0;
+            }
+
+            if (gameState.stage === 1) {
+                camOrbit.targetLookAt.set(0, 0.95 + yShift, 0);
+                if (resetAngles) camOrbit.targetPhi = 0.84;
+                camOrbit.targetRadius = 8.4 * rScale;
+            } else if (gameState.stage === 2) {
+                camOrbit.targetLookAt.set(0, 1.2 + yShift, 0);
+                if (resetAngles) camOrbit.targetPhi = 0.92;
+                camOrbit.targetRadius = 8.8 * rScale;
+            } else if (gameState.stage === 3) {
+                camOrbit.targetLookAt.set(0, 0.95 + yShift, 0.1);
+                if (resetAngles) camOrbit.targetPhi = 0.78;
+                camOrbit.targetRadius = 9.4 * rScale;
+            } else if (gameState.stage === 4) {
+                const topY = 1.85 + Math.max(0, gameState.servedScoops.length - 1) * 0.35;
+                camOrbit.targetLookAt.set(0, topY + yShift, 0);
+                if (resetAngles) camOrbit.targetPhi = 0.95;
+                camOrbit.targetRadius = 7.6 * rScale;
+            }
+        }
+
+        // --- STAGE 1: 3D MIXING BOWL & WHISK ---
+        function buildStage1MixingStation() {
+            stage1Group = new THREE.Group();
+            scene.add(stage1Group);
+
+            const mat = new THREE.Mesh(
+                new THREE.CylinderGeometry(2.2, 2.25, 0.06, 48),
+                new THREE.MeshStandardMaterial({ color: 0xfce7f3, roughness: 0.6 })
+            );
+            mat.position.y = 0.03;
+            mat.receiveShadow = true;
+            stage1Group.add(mat);
+
+            const points = [];
+            for (let i = 0; i <= 20; i++) {
+                const t = i / 20;
+                const r = 0.85 + Math.sin(t * Math.PI * 0.65) * 1.12;
+                const y = t * 1.5;
+                points.push(new THREE.Vector2(r, y));
+            }
+            const bowlMesh = new THREE.Mesh(
+                new THREE.LatheGeometry(points, 48),
+                new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.36,
+                    roughness: 0.1,
+                    side: THREE.DoubleSide
+                })
+            );
+            bowlMesh.position.y = 0.06;
+            bowlMesh.castShadow = true;
+            stage1Group.add(bowlMesh);
+
+            const rim = new THREE.Mesh(
+                new THREE.TorusGeometry(1.85, 0.045, 16, 48),
+                new THREE.MeshStandardMaterial({ color: 0xfbcfe8, roughness: 0.25 })
+            );
+            rim.rotation.x = Math.PI / 2;
+            rim.position.y = 1.56;
+            stage1Group.add(rim);
+
+            bowlLiquidMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.56, 1.1, 0.72, 48),
+                new THREE.MeshStandardMaterial({ color: gameState.blendedColor, roughness: 0.35 })
+            );
+            bowlLiquidMesh.position.y = 0.52;
+            bowlLiquidMesh.scale.set(0.1, 0.1, 0.1);
+            bowlLiquidMesh.visible = false;
+            stage1Group.add(bowlLiquidMesh);
+
+            mixChunksGroup = new THREE.Group();
+            mixChunksGroup.position.y = 0.85;
+            stage1Group.add(mixChunksGroup);
+
+            whiskGroup = new THREE.Group();
+            whiskGroup.position.set(0.32, 1.4, 0.18);
+            whiskGroup.rotation.z = -0.26;
+
+            const handle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.085, 0.105, 1.3, 20),
+                new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.3 })
+            );
+            handle.position.y = 0.92;
+            whiskGroup.add(handle);
+
+            const wireMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 });
+            for (let i = 0; i < 4; i++) {
+                const loop = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.018, 10, 32), wireMat);
+                loop.scale.set(0.75, 1.42, 1);
+                loop.rotation.y = (i * Math.PI) / 4;
+                loop.position.y = -0.15;
+                whiskGroup.add(loop);
+            }
+            stage1Group.add(whiskGroup);
+        }
+
+        // --- STAGE 2: 3D BLAST CHILLER WITH VAPOR & FROST ---
+        function buildStage2ChillerStation() {
+            stage2Group = new THREE.Group();
+            stage2Group.visible = false;
+            scene.add(stage2Group);
+
+            const cabinet = new THREE.Mesh(
+                new THREE.BoxGeometry(4.2, 0.42, 3.0),
+                new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.3 })
+            );
+            cabinet.position.y = 0.21;
+            cabinet.receiveShadow = true;
+            stage2Group.add(cabinet);
+
+            const panGroup = new THREE.Group();
+            panGroup.position.y = 0.5;
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.8, roughness: 0.25 });
+
+            panGroup.add(new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.08, 2.0), steelMat));
+            const wallF = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.52, 0.08), steelMat);
+            wallF.position.set(0, 0.24, 1.0);
+            const wallB = wallF.clone();
+            wallB.position.z = -1.0;
+            const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.52, 2.08), steelMat);
+            wallL.position.set(-1.56, 0.24, 0);
+            const wallR = wallL.clone();
+            wallR.position.x = 1.56;
+            panGroup.add(wallF, wallB, wallL, wallR);
+
+            chillerPanLiquidMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(3.0, 0.4, 1.9),
+                new THREE.MeshStandardMaterial({ color: gameState.blendedColor, roughness: 0.35 })
+            );
+            chillerPanLiquidMesh.position.y = 0.23;
+            panGroup.add(chillerPanLiquidMesh);
+
+            chillerFrostGroup = new THREE.Group();
+            const frostMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xbae6fd, emissiveIntensity: 0.4 });
+            for (let i = 0; i < 34; i++) {
+                const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.08 + Math.random() * 0.05, 0), frostMat);
+                const side = i % 2 === 0 ? 1 : -1;
+                if (i < 18) crystal.position.set((Math.random() - 0.5) * 3.0, 0.5, side * 0.98);
+                else crystal.position.set(side * 1.54, 0.5, (Math.random() - 0.5) * 1.9);
+                crystal.scale.set(0.01, 0.01, 0.01);
+                chillerFrostGroup.add(crystal);
+            }
+            panGroup.add(chillerFrostGroup);
+            stage2Group.add(panGroup);
+
+            const vaporMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 });
+            for (let i = 0; i < 18; i++) {
+                const p = new THREE.Mesh(new THREE.SphereGeometry(0.14 + Math.random() * 0.1, 8, 8), vaporMat);
+                p.position.set((Math.random() - 0.5) * 2.8, 0.8 + Math.random() * 0.8, (Math.random() - 0.5) * 1.8);
+                p.userData.speed = 0.008 + Math.random() * 0.01;
+                p.visible = false;
+                stage2Group.add(p);
+                vaporParticles.push(p);
+            }
+
+            const hood = new THREE.Mesh(
+                new THREE.BoxGeometry(3.9, 1.75, 2.75),
+                new THREE.MeshPhysicalMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.22, roughness: 0.1, side: THREE.DoubleSide })
+            );
+            hood.position.y = 1.3;
+            stage2Group.add(hood);
+        }
+
+        // --- STAGE 3 & 4: DETAILED GASTRONORM GELATO PAN, MECHANICAL TRIGGER SCOOP & SERVING STAND ---
+        function buildStage3And4ScoopingStation() {
+            stage3Group = new THREE.Group();
+            stage3Group.visible = false;
+            scene.add(stage3Group);
+
+            // 1. Detailed Italian Gastronorm Stainless Gelato Pan
+            gelatoPanRootGroup = new THREE.Group();
+            gelatoPanRootGroup.position.set(-1.18, 0.04, 0.35);
+            gelatoPanRootGroup.rotation.y = 0.18;
+
+            const brushedSteelMat = new THREE.MeshStandardMaterial({
+                color: 0xd8e1eb,
+                metalness: 0.86,
+                roughness: 0.22
+            });
+            const darkSteelMat = new THREE.MeshStandardMaterial({
+                color: 0x94a3b8,
+                metalness: 0.88,
+                roughness: 0.32
+            });
+
+            // Outer Pan Body & Rolled Double Lip Flange
+            const panW = 2.52, panH = 0.48, panD = 1.78;
+            const panWallThick = 0.06;
+
+            const bottomPlate = new THREE.Mesh(new THREE.BoxGeometry(panW, 0.06, panD), darkSteelMat);
+            bottomPlate.position.y = 0.03;
+            bottomPlate.castShadow = true;
+            bottomPlate.receiveShadow = true;
+
+            const wallFront = new THREE.Mesh(new THREE.BoxGeometry(panW, panH, panWallThick), brushedSteelMat);
+            wallFront.position.set(0, panH / 2, panD / 2 - panWallThick / 2);
+            wallFront.castShadow = true;
+
+            const wallBack = wallFront.clone();
+            wallBack.position.z = -panD / 2 + panWallThick / 2;
+
+            const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(panWallThick, panH, panD), brushedSteelMat);
+            wallLeft.position.set(-panW / 2 + panWallThick / 2, panH / 2, 0);
+            wallLeft.castShadow = true;
+
+            const wallRight = wallLeft.clone();
+            wallRight.position.x = panW / 2 - panWallThick / 2;
+
+            // Rolled Double-Lip Rim + Rounded Corner Posts
+            const lipW = panW + 0.16, lipD = panD + 0.16;
+            const lipF = new THREE.Mesh(new THREE.BoxGeometry(lipW, 0.045, 0.09), brushedSteelMat);
+            lipF.position.set(0, panH + 0.01, panD / 2 + 0.02);
+            const lipB = lipF.clone();
+            lipB.position.z = -panD / 2 - 0.02;
+            const lipL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.045, lipD), brushedSteelMat);
+            lipL.position.set(-panW / 2 - 0.02, panH + 0.01, 0);
+            const lipR = lipL.clone();
+            lipR.position.x = panW / 2 + 0.02;
+
+            gelatoPanRootGroup.add(bottomPlate, wallFront, wallBack, wallLeft, wallRight, lipF, lipB, lipL, lipR);
+
+            // Corner Cylinders for Smooth Rounded Corners
+            [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+                const corner = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, panH + 0.03, 14), brushedSteelMat);
+                corner.position.set(sx * (panW / 2 - 0.01), panH / 2 + 0.01, sz * (panD / 2 - 0.01));
+                gelatoPanRootGroup.add(corner);
+            });
+
+            // Foldable Side Wire Handles (Left & Right)
+            [-1, 1].forEach(side => {
+                const handleGroup = new THREE.Group();
+                const bar1 = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.34, 10), darkSteelMat);
+                bar1.rotation.z = Math.PI / 2;
+                bar1.position.set(side * 0.16, 0, -0.28);
+                const bar2 = bar1.clone();
+                bar2.position.z = 0.28;
+                const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.58, 12), darkSteelMat);
+                grip.rotation.x = Math.PI / 2;
+                grip.position.set(side * 0.32, 0, 0);
+                handleGroup.add(bar1, bar2, grip);
+                handleGroup.position.set(side * (panW / 2 + 0.03), panH - 0.06, 0);
+                handleGroup.rotation.z = side * -0.28;
+                gelatoPanRootGroup.add(handleGroup);
+            });
+
+            // Front Artisan Flavor Name Tag Sign
+            const tagGroup = new THREE.Group();
+            const tagStake = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.32, 8), darkSteelMat);
+            tagStake.position.y = 0.14;
+            const tagBoard = new THREE.Mesh(
+                new THREE.BoxGeometry(0.68, 0.34, 0.025),
+                new THREE.MeshStandardMaterial({ map: flavorTagTexture, roughness: 0.3 })
+            );
+            tagBoard.position.y = 0.34;
+            tagBoard.rotation.x = -0.22;
+            const tagFrame = new THREE.Mesh(new THREE.BoxGeometry(0.71, 0.37, 0.018), brushedSteelMat);
+            tagFrame.position.set(0, 0.34, -0.006);
+            tagFrame.rotation.x = -0.22;
+            tagGroup.add(tagStake, tagBoard, tagFrame);
+            tagGroup.position.set(0, panH - 0.04, panD / 2 + 0.03);
+            gelatoPanRootGroup.add(tagGroup);
+
+            // Sculpted Ripple Gelato Surface
+            gelatoPanGeo = new THREE.PlaneGeometry(2.38, 1.64, 44, 32);
+            gelatoPanGeo.rotateX(-Math.PI / 2);
+            const posAttr = gelatoPanGeo.attributes.position;
+            initialPanVertices = new Float32Array(posAttr.array.length);
+            for (let i = 0; i < posAttr.count; i++) {
+                const vx = posAttr.getX(i);
+                const vz = posAttr.getZ(i);
+                // Italian artisan gelato wave ridges
+                const wave = Math.sin(vx * 6.2 + vz * 1.4) * 0.038 + Math.cos(vz * 4.5) * 0.018;
+                posAttr.setY(i, 0.45 + wave);
+            }
+            gelatoPanGeo.computeVertexNormals();
+            initialPanVertices.set(posAttr.array);
+
+            gelatoPanSurfaceMesh = new THREE.Mesh(
+                gelatoPanGeo,
+                new THREE.MeshStandardMaterial({ color: gameState.blendedColor, roughness: 0.56 })
+            );
+            gelatoPanSurfaceMesh.receiveShadow = true;
+            gelatoPanRootGroup.add(gelatoPanSurfaceMesh);
+
+            // Embedded Chunks on Pan Surface
+            gelatoPanChunksGroup = new THREE.Group();
+            gelatoPanRootGroup.add(gelatoPanChunksGroup);
+
+            stage3Group.add(gelatoPanRootGroup);
+
+            // 2. Detailed 3D Mechanical Trigger Ice Cream Scoop
+            scoopToolGroup = new THREE.Group();
+            scoopToolGroup.position.set(-1.18, 1.05, 0.35);
+
+            const chromeMat = new THREE.MeshStandardMaterial({
+                color: 0xf1f5f9,
+                metalness: 0.92,
+                roughness: 0.14,
+                side: THREE.DoubleSide
+            });
+            const innerBowlMat = new THREE.MeshStandardMaterial({
+                color: 0xcbd5e1,
+                metalness: 0.85,
+                roughness: 0.25,
+                side: THREE.DoubleSide
+            });
+
+            // Hemispherical Bowl + Thick Lip Ring
+            const scoopHead = new THREE.Mesh(
+                new THREE.SphereGeometry(0.35, 28, 18, 0, Math.PI * 2, Math.PI * 0.46, Math.PI * 0.54),
+                chromeMat
+            );
+            scoopHead.castShadow = true;
+            const scoopLipRing = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.022, 12, 32), chromeMat);
+            scoopLipRing.rotation.x = Math.PI / 2;
+            scoopLipRing.position.y = 0.02;
+
+            // Internal Curved Sweeper Blade (Scrapes gelato out when trigger is squeezed)
+            scoopSweeperBladeMesh = new THREE.Mesh(
+                new THREE.TorusGeometry(0.32, 0.014, 8, 24, Math.PI * 0.92),
+                innerBowlMat
+            );
+            scoopSweeperBladeMesh.rotation.set(Math.PI * 0.35, 0, 0);
+            scoopSweeperBladeMesh.position.y = -0.02;
+
+            // Metal Neck Collar & Gear Housing
+            const neckShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.068, 0.34, 16), chromeMat);
+            neckShaft.rotation.z = -Math.PI / 3;
+            neckShaft.position.set(0.42, 0.24, 0);
+
+            const gearBox = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.06, 18), darkSteelMat);
+            gearBox.rotation.x = Math.PI / 2;
+            gearBox.position.set(0.34, 0.19, 0);
+
+            // Ergonomic Tapered Handle + End Cap
+            const scoopHandle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.065, 0.092, 0.92, 20),
+                new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.32 })
+            );
+            scoopHandle.rotation.z = -Math.PI / 3;
+            scoopHandle.position.set(0.92, 0.53, 0);
+            scoopHandle.castShadow = true;
+
+            const handleCap = new THREE.Mesh(new THREE.SphereGeometry(0.092, 16, 16), chromeMat);
+            handleCap.position.set(1.31, 0.76, 0);
+
+            // Mechanical Side Squeeze Trigger Lever
+            scoopTriggerLeverGroup = new THREE.Group();
+            scoopTriggerLeverGroup.position.set(0.55, 0.28, 0);
+            const leverArm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.032, 0.045), chromeMat);
+            leverArm.position.set(0.24, -0.04, 0);
+            leverArm.rotation.z = 0.35;
+            const thumbPad = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 16), chromeMat);
+            thumbPad.position.set(0.48, 0.05, 0);
+            thumbPad.rotation.z = -0.5;
+            scoopTriggerLeverGroup.add(leverArm, thumbPad);
+
+            scoopToolGroup.add(
+                scoopHead,
+                scoopLipRing,
+                scoopSweeperBladeMesh,
+                neckShaft,
+                gearBox,
+                scoopHandle,
+                handleCap,
+                scoopTriggerLeverGroup
+            );
+
+            growingScoopBallMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.34, 24, 24),
+                new THREE.MeshStandardMaterial({ color: gameState.blendedColor, roughness: 0.58 })
+            );
+            growingScoopBallMesh.position.y = 0.04;
+            growingScoopBallMesh.scale.set(0.01, 0.01, 0.01);
+            growingScoopBallMesh.visible = false;
+            scoopToolGroup.add(growingScoopBallMesh);
+            stage3Group.add(scoopToolGroup);
+
+            // 3. Serving Stand
+            servingStandGroup = new THREE.Group();
+            servingStandGroup.position.set(1.42, 0, -0.2);
+
+            const plate = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.42, 1.28, 0.12, 48),
+                new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.22 })
+            );
+            plate.position.y = 0.06;
+            plate.receiveShadow = true;
+            plate.castShadow = true;
+            servingStandGroup.add(plate);
+
+            const plateGoldRim = new THREE.Mesh(
+                new THREE.TorusGeometry(1.4, 0.018, 12, 48),
+                new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.2 })
+            );
+            plateGoldRim.rotation.x = Math.PI / 2;
+            plateGoldRim.position.y = 0.12;
+            servingStandGroup.add(plateGoldRim);
+
+            containerMesh = new THREE.Group();
+            containerMesh.position.y = 0.12;
+            servingStandGroup.add(containerMesh);
+
+            servedIceCreamGroup = new THREE.Group();
+            servingStandGroup.add(servedIceCreamGroup);
+
+            // Glowing Target Placement Ring
+            targetSlotMarkerMesh = new THREE.Mesh(
+                new THREE.TorusGeometry(0.46, 0.024, 12, 36),
+                new THREE.MeshBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.72 })
+            );
+            targetSlotMarkerMesh.rotation.x = Math.PI / 2;
+            servedIceCreamGroup.add(targetSlotMarkerMesh);
+
+            // Selection Highlight Ring
+            selectionHighlightRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.6, 0.028, 12, 36),
+                new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+            );
+            selectionHighlightRing.rotation.x = Math.PI / 2;
+            selectionHighlightRing.visible = false;
+            servedIceCreamGroup.add(selectionHighlightRing);
+
+            // Container for 3D Ribbon Sauce Strokes
+            sauceStrokesContainer = new THREE.Group();
+            servedIceCreamGroup.add(sauceStrokesContainer);
+
+            // Container for 3D Toppings
+            toppingsContainer = new THREE.Group();
+            servedIceCreamGroup.add(toppingsContainer);
+
+            // 3D Squeeze Sauce Bottle
+            sauceBottleGroup = new THREE.Group();
+            sauceBottleGroup.visible = false;
+            const bottleBody = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.2, 0.2, 0.75, 24),
+                new THREE.MeshStandardMaterial({ color: 0x241006, roughness: 0.3 })
+            );
+            const bottleNozzle = new THREE.Mesh(
+                new THREE.ConeGeometry(0.11, 0.3, 20),
+                new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+            );
+            bottleNozzle.rotation.x = Math.PI;
+            bottleNozzle.position.y = -0.5;
+            sauceBottleGroup.add(bottleBody, bottleNozzle);
+
+            sauceStreamMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.024, 0.032, 0.65, 12),
+                new THREE.MeshPhysicalMaterial({ color: 0x241006, roughness: 0.15, clearcoat: 1.0 })
+            );
+            sauceStreamMesh.position.y = -0.95;
+            sauceBottleGroup.add(sauceStreamMesh);
+            servingStandGroup.add(sauceBottleGroup);
+
+            stage3Group.add(servingStandGroup);
+            buildServingContainer('waffle');
+            updateTargetSlotMarkerPosition();
+        }
+
+        function refreshPanFlavorDetails() {
+            if (!gelatoPanChunksGroup) return;
+            while (gelatoPanChunksGroup.children.length > 0) {
+                gelatoPanChunksGroup.remove(gelatoPanChunksGroup.children[0]);
+            }
+
+            const flavorNames = [...new Set(gameState.addedIngredients.filter(i => i.cat !== 'base').map(i => i.name))];
+            updateFlavorTagTexture(flavorNames.length > 0 ? flavorNames[0] : 'SWEET VANILLA');
+
+            const chunkColors = gameState.addedIngredients.filter(i => i.chunk).map(i => i.chunk);
+            if (chunkColors.length > 0) {
+                for (let i = 0; i < 24; i++) {
+                    const col = chunkColors[i % chunkColors.length];
+                    const bit = new THREE.Mesh(
+                        new THREE.DodecahedronGeometry(0.045, 0),
+                        new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 })
+                    );
+                    bit.position.set(
+                        (Math.random() - 0.5) * 2.1,
+                        0.47,
+                        (Math.random() - 0.5) * 1.4
+                    );
+                    bit.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                    gelatoPanChunksGroup.add(bit);
+                }
+            }
+        }
+
+        function buildServingContainer(type) {
+            while (containerMesh.children.length > 0) {
+                containerMesh.remove(containerMesh.children[0]);
+            }
+
+            let scoopBaseY = 1.45;
+
+            if (type === 'waffle' || type === 'chococone') {
+                const isChoc = type === 'chococone';
+                const tex = isChoc ? chocoWaffleTex : waffleTex;
+                const coneMat = new THREE.MeshStandardMaterial({
+                    map: tex,
+                    bumpMap: tex,
+                    bumpScale: 0.035,
+                    roughness: isChoc ? 0.45 : 0.68,
+                    side: THREE.DoubleSide
+                });
+
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(0.66, 1.62, 36, 1, true), coneMat);
+                cone.rotation.x = Math.PI;
+                cone.position.y = 0.82;
+                cone.castShadow = true;
+
+                const lip = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.66, 0.048, 14, 36),
+                    isChoc
+                        ? new THREE.MeshPhysicalMaterial({ color: 0x241006, roughness: 0.25, clearcoat: 0.8 })
+                        : coneMat
+                );
+                lip.rotation.x = Math.PI / 2;
+                lip.position.y = 1.62;
+
+                const holder = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.46, 0.34, 0.65, 28, 1, true),
+                    new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.5, side: THREE.DoubleSide })
+                );
+                holder.position.y = 0.62;
+
+                const standRing = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.42, 0.03, 12, 32),
+                    new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.8, roughness: 0.2 })
+                );
+                standRing.rotation.x = Math.PI / 2;
+                standRing.position.y = 0.32;
+
+                containerMesh.add(cone, lip, holder, standRing);
+                scoopBaseY = 1.64;
+
+            } else if (type === 'cup') {
+                const cup = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.86, 0.62, 0.94, 36),
+                    new THREE.MeshStandardMaterial({ color: 0xfce7f3, roughness: 0.42 })
+                );
+                cup.position.y = 0.47;
+                cup.castShadow = true;
+
+                const cupRim = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.86, 0.042, 14, 36),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+                );
+                cupRim.rotation.x = Math.PI / 2;
+                cupRim.position.y = 0.94;
+
+                const sleeve = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.79, 0.69, 0.44, 36, 1, true),
+                    new THREE.MeshStandardMaterial({ map: waffleTex, bumpMap: waffleTex, bumpScale: 0.015, color: 0xe5c29f, roughness: 0.75, side: THREE.DoubleSide })
+                );
+                sleeve.position.y = 0.48;
+
+                containerMesh.add(cup, cupRim, sleeve);
+                scoopBaseY = 0.95;
+
+            } else if (type === 'parfait') {
+                const glassMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.42,
+                    roughness: 0.08,
+                    metalness: 0.05,
+                    clearcoat: 1.0,
+                    side: THREE.DoubleSide
+                });
+
+                const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.86, 0.42, 0.92, 32, 1, true), glassMat);
+                bowl.position.y = 0.94;
+
+                const bowlBottom = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 12, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), glassMat);
+                bowlBottom.position.y = 0.52;
+
+                const glassRim = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.028, 12, 36), glassMat);
+                glassRim.rotation.x = Math.PI / 2;
+                glassRim.position.y = 1.4;
+
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.38, 20), glassMat);
+                stem.position.y = 0.26;
+
+                const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.54, 0.1, 24), glassMat);
+                foot.position.y = 0.05;
+
+                containerMesh.add(bowl, bowlBottom, glassRim, stem, foot);
+                scoopBaseY = 1.24;
+
+            } else if (type === 'brioche') {
+                const crustMat = new THREE.MeshStandardMaterial({ map: breadCrustTex, bumpMap: breadCrustTex, bumpScale: 0.025, roughness: 0.62 });
+                const crumbMat = new THREE.MeshStandardMaterial({ map: breadCrumbTex, bumpMap: breadCrumbTex, bumpScale: 0.02, roughness: 0.85 });
+
+                const bottomCrust = new THREE.Mesh(new THREE.CylinderGeometry(0.96, 0.84, 0.34, 32), crustMat);
+                bottomCrust.position.y = 0.17;
+                bottomCrust.castShadow = true;
+                const bottomCrumb = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.04, 32), crumbMat);
+                bottomCrumb.position.y = 0.345;
+
+                const topGroup = new THREE.Group();
+                const topDome = new THREE.Mesh(new THREE.SphereGeometry(0.92, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.48), crustMat);
+                const topInner = new THREE.Mesh(new THREE.CylinderGeometry(0.91, 0.91, 0.04, 32), crumbMat);
+                topGroup.add(topDome, topInner);
+                topGroup.position.set(0.35, 1.32, -0.38);
+                topGroup.rotation.set(0.25, 0, -0.45);
+
+                containerMesh.add(bottomCrust, bottomCrumb, topGroup);
+                scoopBaseY = 0.56;
+
+            } else if (type === 'toast') {
+                const crustMat = new THREE.MeshStandardMaterial({ map: breadCrustTex, bumpMap: breadCrustTex, bumpScale: 0.03, roughness: 0.68 });
+                const crumbMat = new THREE.MeshStandardMaterial({ map: breadCrumbTex, bumpMap: breadCrumbTex, bumpScale: 0.025, roughness: 0.82 });
+
+                const crust = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.76, 1.62), crustMat);
+                crust.position.y = 0.38;
+                crust.castShadow = true;
+
+                const crumb = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.78, 1.46), crumbMat);
+                crumb.position.y = 0.39;
+                containerMesh.add(crust, crumb);
+
+                const grooveMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.7 });
+                for (let g = -0.35; g <= 0.35; g += 0.35) {
+                    const lineX = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.02, 0.035), grooveMat);
+                    lineX.position.set(0, 0.785, g);
+                    const lineZ = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.02, 1.44), grooveMat);
+                    lineZ.position.set(g, 0.785, 0);
+                    containerMesh.add(lineX, lineZ);
+                }
+
+                const butter = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.32, 0.08, 0.32),
+                    new THREE.MeshPhysicalMaterial({ color: 0xfef08a, roughness: 0.2, clearcoat: 0.8 })
+                );
+                butter.position.set(-0.45, 0.81, 0.45);
+                butter.rotation.y = 0.3;
+                containerMesh.add(butter);
+
+                scoopBaseY = 0.96;
+
+            } else if (type === 'belgian') {
+                const waffleMat = new THREE.MeshStandardMaterial({
+                    map: waffleTex,
+                    bumpMap: waffleTex,
+                    bumpScale: 0.04,
+                    roughness: 0.62
+                });
+
+                const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.12, 1.12, 0.24, 36), waffleMat);
+                disc.position.y = 0.12;
+                disc.castShadow = true;
+                containerMesh.add(disc);
+
+                const pocketMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.75 });
+                for (let gx = -0.65; gx <= 0.65; gx += 0.32) {
+                    for (let gz = -0.65; gz <= 0.65; gz += 0.32) {
+                        if (Math.hypot(gx, gz) < 0.85) {
+                            const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.2), pocketMat);
+                            pocket.position.set(gx, 0.242, gz);
+                            containerMesh.add(pocket);
+                        }
+                    }
+                }
+
+                scoopBaseY = 0.44;
+
+            } else if (type === 'cookiebowl') {
+                const cookieMat = new THREE.MeshStandardMaterial({
+                    map: cookieTex,
+                    bumpMap: cookieTex,
+                    bumpScale: 0.04,
+                    roughness: 0.85,
+                    side: THREE.DoubleSide
+                });
+
+                const bowl = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.94, 32, 16, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5),
+                    cookieMat
+                );
+                bowl.position.y = 0.86;
+                bowl.castShadow = true;
+
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.065, 12, 32), cookieMat);
+                rim.rotation.x = Math.PI / 2;
+                rim.position.y = 0.86;
+
+                containerMesh.add(bowl, rim);
+
+                const chipMat = new THREE.MeshStandardMaterial({ color: 0x241006, roughness: 0.35 });
+                for (let c = 0; c < 18; c++) {
+                    const ang = (c / 18) * Math.PI * 2;
+                    const chip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.07, 8), chipMat);
+                    chip.position.set(Math.cos(ang) * 0.94, 0.62 + (c % 2) * 0.16, Math.sin(ang) * 0.94);
+                    chip.rotation.z = -Math.cos(ang) * 0.8;
+                    chip.rotation.x = Math.sin(ang) * 0.8;
+                    containerMesh.add(chip);
+                }
+
+                scoopBaseY = 0.72;
+            }
+
+            servedIceCreamGroup.position.y = scoopBaseY;
+            updateTargetSlotMarkerPosition();
+        }
+
+        function activateStageVisuals(stageNum) {
+            stage1Group.visible = (stageNum === 1);
+            stage2Group.visible = (stageNum === 2);
+            stage3Group.visible = (stageNum === 3 || stageNum === 4);
+
+            if (stageNum === 3) {
+                gelatoPanRootGroup.visible = true;
+                scoopToolGroup.visible = true;
+                gameState.panHideProgress = 0;
+                servingStandGroup.position.set(1.42, 0, -0.2);
+                targetSlotMarkerMesh.visible = true;
+                selectionHighlightRing.visible = (gameState.selectedScoopIndex >= 0);
+            } else if (stageNum === 4) {
+                // Smoothly retract and hide the gelato pan & scoop tool when finished scooping!
+                servingStandGroup.position.set(0, 0, 0);
+                targetSlotMarkerMesh.visible = false;
+                selectionHighlightRing.visible = false;
+            }
+            resetCamera(true);
+        }
+
+        /**
+         * ============================================================================
+         * 6. STAGE 1 & STAGE 2 LOGIC (RICH CHOCOLATE MIXING & FREEZING)
+         * ============================================================================
+         */
+        function addIngredient(ingId) {
+            const ing = INGREDIENTS.find(i => i.id === ingId);
+            if (!ing) return;
+
+            initAudio();
+            playSound('plop');
+            gameState.addedIngredients.push(ing);
+
+            let r = 0, g = 0, b = 0, totalWeight = 0;
+            const c = new THREE.Color();
+            gameState.addedIngredients.forEach(item => {
+                const w = item.weight || 1.0;
+                c.set(item.color);
+                r += c.r * w;
+                g += c.g * w;
+                b += c.b * w;
+                totalWeight += w;
+            });
+            gameState.blendedColor.setRGB(r / totalWeight, g / totalWeight, b / totalWeight);
+
+            bowlLiquidMesh.visible = true;
+            const count = gameState.addedIngredients.length;
+            const fillScale = Math.min(1.0, 0.36 + count * 0.12);
+            bowlLiquidMesh.scale.set(fillScale, fillScale, fillScale);
+            bowlLiquidMesh.material.color.copy(gameState.blendedColor);
+
+            if (ing.chunk) {
+                for (let i = 0; i < 3; i++) {
+                    let geo;
+                    if (ing.id === 'mint') {
+                        geo = new THREE.BoxGeometry(0.14, 0.02, 0.08);
+                    } else if (ing.shape === 'choc') {
+                        geo = new THREE.BoxGeometry(0.13, 0.045, 0.11);
+                    } else if (ing.shape === 'brownie') {
+                        geo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+                    } else if (ing.shape === 'chip') {
+                        geo = new THREE.ConeGeometry(0.06, 0.08, 8);
+                    } else {
+                        geo = new THREE.DodecahedronGeometry(0.08, 0);
+                    }
+                    const chunk = new THREE.Mesh(
+                        geo,
+                        new THREE.MeshStandardMaterial({ color: ing.chunk, roughness: 0.4 })
+                    );
+                    const angle = Math.random() * Math.PI * 2;
+                    const rad = Math.random() * 0.85;
+                    chunk.position.set(Math.cos(angle) * rad, (Math.random() - 0.5) * 0.15, Math.sin(angle) * rad);
+                    chunk.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                    mixChunksGroup.add(chunk);
+                }
+            }
+
+            gameState.mixProgress = Math.max(0, gameState.mixProgress - 10);
+            updateMixUI();
+            showToast(`ใส่ ${ing.name} ลงชามแล้ว!`);
+        }
+
+        function clearBowl() {
+            gameState.addedIngredients = [];
+            gameState.mixProgress = 0;
+            gameState.blendedColor.set('#FFFDF9');
+            bowlLiquidMesh.visible = false;
+            while (mixChunksGroup.children.length > 0) {
+                mixChunksGroup.remove(mixChunksGroup.children[0]);
+            }
+            updateMixUI();
+            playSound('pop');
+        }
+
+        function startStirring() {
+            if (gameState.addedIngredients.length === 0) {
+                addIngredient('milk');
+                addIngredient('cream');
+            }
+            initAudio();
+            gameState.isStirring = true;
+        }
+
+        function stopStirring() {
+            gameState.isStirring = false;
+        }
+
+        function updateMixUI() {
+            const pct = Math.min(100, Math.round(gameState.mixProgress));
+            document.getElementById('mix-progress-bar').style.width = `${pct}%`;
+            document.getElementById('mix-percent-text').textContent = `${pct}%`;
+
+            const names = [...new Set(gameState.addedIngredients.map(i => i.name))];
+            document.getElementById('flavor-summary-text').textContent =
+                names.length > 0 ? `รส: ${names.slice(0, 3).join(' + ')}${names.length > 3 ? '...' : ''}` : 'กดเลือกเบสครีมและรสชาติใส่ชามด้านบน';
+
+            const ready = gameState.addedIngredients.length > 0 && pct >= 50;
+            const nextBtn = document.getElementById('to-stage-2-btn');
+            if (ready) {
+                nextBtn.className = 'btn-tap py-2.5 px-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5 transition-colors';
+            } else {
+                nextBtn.className = 'btn-tap py-2.5 px-2.5 rounded-2xl bg-slate-300 text-slate-600 font-bold text-xs shadow flex items-center justify-center gap-1.5 transition-colors';
+            }
+        }
+
+        function proceedToChiller() {
+            if (gameState.addedIngredients.length === 0) {
+                showToast('กรุณาเลือกส่วนผสมใส่ชามก่อนนะ!');
+                return;
+            }
+            if (gameState.mixProgress < 50) {
+                showToast('กดปุ่ม "กดค้างเพื่อคนส่วนผสม" ให้เข้ากันก่อน (อย่างน้อย 50%)');
+                return;
+            }
+            goToStage(2);
+        }
+
+        function startFreezing() {
+            initAudio();
+            gameState.isFreezing = true;
+            vaporParticles.forEach(p => p.visible = true);
+        }
+
+        function stopFreezing() {
+            gameState.isFreezing = false;
+            vaporParticles.forEach(p => p.visible = false);
+        }
+
+        function updateFreezeUI() {
+            const pct = Math.min(100, Math.round(gameState.freezeProgress));
+            gameState.temperature = Math.round(4 - (pct / 100) * 28);
+            document.getElementById('temp-display').textContent = `${gameState.temperature > 0 ? '+' : ''}${gameState.temperature}°C`;
+            document.getElementById('freeze-progress-bar').style.width = `${pct}%`;
+
+            const s = Math.max(0.01, pct / 100);
+            chillerFrostGroup.children.forEach(c => c.scale.set(s, s, s));
+            chillerPanLiquidMesh.material.roughness = 0.35 + (pct / 100) * 0.25;
+        }
+
+        /**
+         * ============================================================================
+         * 7. STAGE 3: INTERACTIVE SCOOPING + TARGET PLACEMENT + SCOOP EDITING
+         * ============================================================================
+         */
+        function setPlacementSlot(slot) {
+            gameState.placementSlot = slot;
+            ['stack', 'left', 'center', 'right'].forEach(s => {
+                const btn = document.getElementById(`slot-btn-${s}`);
+                btn.className = s === slot
+                    ? 'flex-1 py-1 rounded-xl text-[10px] font-bold bg-pink-500 text-white shadow-sm'
+                    : 'flex-1 py-1 rounded-xl text-[10px] font-bold text-slate-600';
+            });
+            playSound('pop');
+            updateTargetSlotMarkerPosition();
+        }
+
+        function getNextPlacementCoords() {
+            const slot = gameState.placementSlot;
+            const count = gameState.servedScoops.length;
+            if (slot === 'left') {
+                const leftCount = gameState.servedScoops.filter(s => s.x < -0.2).length;
+                return { x: -0.45, y: leftCount * 0.48, z: 0.08 };
+            } else if (slot === 'right') {
+                const rightCount = gameState.servedScoops.filter(s => s.x > 0.2).length;
+                return { x: 0.45, y: rightCount * 0.48, z: 0.08 };
+            } else if (slot === 'center') {
+                const midCount = gameState.servedScoops.filter(s => Math.abs(s.x) <= 0.2).length;
+                return { x: 0, y: midCount * 0.48, z: 0.14 };
+            } else {
+                let maxY = -0.52;
+                let topX = 0, topZ = 0;
+                gameState.servedScoops.forEach(s => {
+                    if (s.y >= maxY) {
+                        maxY = s.y;
+                        topX = s.x;
+                        topZ = s.z;
+                    }
+                });
+                return { x: count === 0 ? 0 : topX, y: count === 0 ? 0 : maxY + 0.52, z: count === 0 ? 0 : topZ };
+            }
+        }
+
+        function updateTargetSlotMarkerPosition() {
+            if (!targetSlotMarkerMesh) return;
+            const pos = getNextPlacementCoords();
+            targetSlotMarkerMesh.position.set(pos.x, pos.y - 0.18, pos.z);
+        }
+
+        function selectScoopForEdit(idx) {
+            gameState.selectedScoopIndex = idx;
+            const bar = document.getElementById('scoop-editor-bar');
+            if (idx >= 0 && idx < gameState.servedScoops.length) {
+                const s = gameState.servedScoops[idx];
+                bar.classList.remove('hidden');
+                document.getElementById('selected-scoop-label').textContent = `✏️ ลูกที่ ${idx + 1}:`;
+                selectionHighlightRing.visible = (gameState.stage === 3);
+                selectionHighlightRing.position.set(s.x, s.y - 0.15, s.z);
+                selectionHighlightRing.scale.set(s.scale, s.scale, s.scale);
+            } else {
+                bar.classList.add('hidden');
+                selectionHighlightRing.visible = false;
+            }
+        }
+
+        function nudgeSelectedScoop(dx, dy) {
+            const idx = gameState.selectedScoopIndex;
+            if (idx < 0 || idx >= gameState.servedScoops.length) return;
+            const s = gameState.servedScoops[idx];
+            s.x = THREE.MathUtils.clamp(s.x + dx, -0.78, 0.78);
+            s.y = THREE.MathUtils.clamp(s.y + dy, -0.15, 2.4);
+            s.meshGroup.position.set(s.x, s.y, s.z);
+            selectionHighlightRing.position.set(s.x, s.y - 0.15, s.z);
+            playSound('pop');
+        }
+
+        function scaleSelectedScoop(ds) {
+            const idx = gameState.selectedScoopIndex;
+            if (idx < 0 || idx >= gameState.servedScoops.length) return;
+            const s = gameState.servedScoops[idx];
+            s.scale = THREE.MathUtils.clamp(s.scale + ds, 0.65, 1.35);
+            s.meshGroup.scale.set(s.scale, s.scale, s.scale);
+            selectionHighlightRing.scale.set(s.scale, s.scale, s.scale);
+            playSound('pop');
+        }
+
+        function deleteSelectedScoop() {
+            const idx = gameState.selectedScoopIndex;
+            if (idx < 0 || idx >= gameState.servedScoops.length) return;
+            const removed = gameState.servedScoops.splice(idx, 1)[0];
+            servedIceCreamGroup.remove(removed.meshGroup);
+
+            gameState.servedScoops.forEach((sc, i) => {
+                sc.meshGroup.traverse(c => {
+                    if (c.userData) c.userData.scoopIndex = i;
+                });
+            });
+
+            document.getElementById('scoop-count-text').textContent = gameState.servedScoops.length;
+            selectScoopForEdit(gameState.servedScoops.length - 1);
+            updateTargetSlotMarkerPosition();
+            playSound('pop');
+            showToast('ลบลูกไอศกรีมที่เลือกแล้ว');
+        }
+
+        function undoLastScoop() {
+            if (gameState.servedScoops.length === 0) {
+                showToast('ยังไม่มีลูกไอศกรีมให้ย้อนกลับ');
+                return;
+            }
+            selectScoopForEdit(gameState.servedScoops.length - 1);
+            deleteSelectedScoop();
+        }
+
+        function carveGelatoAndGrowScoop(worldHitPoint, dragDist) {
+            const localPt = gelatoPanSurfaceMesh.worldToLocal(worldHitPoint.clone());
+            const posAttr = gelatoPanGeo.attributes.position;
+            const radius = 0.34;
+            let carvedAny = false;
+
+            for (let i = 0; i < posAttr.count; i++) {
+                const vx = posAttr.getX(i);
+                const vz = posAttr.getZ(i);
+                const d = Math.hypot(vx - localPt.x, vz - localPt.z);
+                if (d < radius) {
+                    const falloff = Math.cos((d / radius) * (Math.PI / 2));
+                    const curY = posAttr.getY(i);
+                    const minFloor = 0.15;
+                    if (curY > minFloor) {
+                        posAttr.setY(i, Math.max(minFloor, curY - 0.032 * falloff));
+                        carvedAny = true;
+                    }
+                }
+            }
+
+            if (carvedAny) {
+                posAttr.needsUpdate = true;
+                gelatoPanGeo.computeVertexNormals();
+
+                gameState.scoopFillAmount = Math.min(1.0, gameState.scoopFillAmount + dragDist * 0.78);
+                const pct = Math.round(gameState.scoopFillAmount * 100);
+                document.getElementById('scoop-fill-bar').style.width = `${pct}%`;
+                document.getElementById('scoop-fill-pct').textContent = `${pct}%`;
+
+                growingScoopBallMesh.visible = true;
+                const s = 0.22 + gameState.scoopFillAmount * 0.85;
+                growingScoopBallMesh.scale.set(s, s, s);
+                growingScoopBallMesh.rotation.z += dragDist * 3.5;
+
+                playSound('scoop');
+            }
+        }
+
+        function smoothGelatoPan() {
+            const posAttr = gelatoPanGeo.attributes.position;
+            posAttr.array.set(initialPanVertices);
+            posAttr.needsUpdate = true;
+            gelatoPanGeo.computeVertexNormals();
+            playSound('pop');
+            showToast('ปาดหน้าไอศกรีมในถาดให้เรียบแล้ว!');
+        }
+
+        function createScoopMeshGroup(colorHex, chunkColors, scoopIdx) {
+            const scoopGroup = new THREE.Group();
+
+            const ballGeo = new THREE.SphereGeometry(0.52, 32, 24);
+            const bPos = ballGeo.attributes.position;
+            for (let i = 0; i < bPos.count; i++) {
+                const n = 1 + (Math.sin(bPos.getX(i) * 12) * Math.cos(bPos.getZ(i) * 12)) * 0.04;
+                bPos.setXYZ(i, bPos.getX(i) * n, bPos.getY(i) * n, bPos.getZ(i) * n);
+            }
+            ballGeo.computeVertexNormals();
+
+            const ballMesh = new THREE.Mesh(
+                ballGeo,
+                new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.56 })
+            );
+            ballMesh.castShadow = true;
+            ballMesh.receiveShadow = true;
+            ballMesh.userData.isScoopSurface = true;
+            ballMesh.userData.scoopIndex = scoopIdx;
+            scoopGroup.add(ballMesh);
+
+            const skirt = new THREE.Mesh(
+                new THREE.TorusGeometry(0.47, 0.072, 12, 32),
+                new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.62 })
+            );
+            skirt.rotation.x = Math.PI / 2;
+            skirt.position.y = -0.2;
+            skirt.userData.isScoopSurface = true;
+            skirt.userData.scoopIndex = scoopIdx;
+            scoopGroup.add(skirt);
+
+            if (chunkColors && chunkColors.length > 0) {
+                for (let c = 0; c < 10; c++) {
+                    const col = chunkColors[c % chunkColors.length];
+                    const chip = new THREE.Mesh(
+                        new THREE.DodecahedronGeometry(0.05, 0),
+                        new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 })
+                    );
+                    const phi = Math.random() * Math.PI * 0.65;
+                    const theta = Math.random() * Math.PI * 2;
+                    chip.position.set(
+                        Math.sin(phi) * Math.cos(theta) * 0.5,
+                        Math.cos(phi) * 0.5,
+                        Math.sin(phi) * Math.sin(theta) * 0.5
+                    );
+                    scoopGroup.add(chip);
+                }
+            }
+            return scoopGroup;
+        }
+
+        function transferScoopToServingContainer() {
+            if (gameState.servedScoops.length >= 6) {
+                showToast('ตักวางครบ 6 ลูกแล้ว! แตะเลือกลูกเพื่อขยับ/ลบ หรือไปแต่งหน้าได้เลย');
+                gameState.scoopFillAmount = 0;
+                growingScoopBallMesh.visible = false;
+                document.getElementById('scoop-fill-bar').style.width = '0%';
+                document.getElementById('scoop-fill-pct').textContent = '0%';
+                return;
+            }
+
+            // Trigger mechanical lever squeeze animation on release
+            gameState.scoopTriggerAngle = 1.0;
+
+            const coords = getNextPlacementCoords();
+            const chunkColors = gameState.addedIngredients.filter(i => i.chunk).map(i => i.chunk);
+            const colorHex = '#' + gameState.blendedColor.getHexString();
+            const newIdx = gameState.servedScoops.length;
+            const meshGroup = createScoopMeshGroup(colorHex, chunkColors, newIdx);
+            meshGroup.position.set(coords.x, coords.y, coords.z);
+            servedIceCreamGroup.add(meshGroup);
+
+            gameState.servedScoops.push({
+                meshGroup,
+                colorHex,
+                chunkColors,
+                x: coords.x,
+                y: coords.y,
+                z: coords.z,
+                scale: 1.0
+            });
+
+            gameState.scoopFillAmount = 0;
+            growingScoopBallMesh.visible = false;
+            document.getElementById('scoop-fill-bar').style.width = '0%';
+            document.getElementById('scoop-fill-pct').textContent = '0%';
+            document.getElementById('scoop-count-text').textContent = gameState.servedScoops.length;
+
+            selectScoopForEdit(newIdx);
+            updateTargetSlotMarkerPosition();
+            playSound('success');
+            showToast(`🍨 วางไอศกรีมลูกที่ ${newIdx + 1} สำเร็จ! กด "ไปแต่งหน้าท็อปปิ้ง →" เพื่อเก็บถาดและแต่งหน้าได้เลย`);
+        }
+
+        function makeAnotherFlavor() {
+            clearBowl();
+            goToStage(1);
+            showToast('ผสมรสชาติใหม่เพื่อนำไปตักวางเพิ่มได้เลย!');
+        }
+
+        /**
+         * ============================================================================
+         * 8. STAGE 4: 3D RIBBON/LINE SAUCE DRIZZLE & 22 TOPPINGS
+         * ============================================================================
+         */
+        function selectSauce(sauceId) {
+            const sauce = SAUCES.find(s => s.id === sauceId);
+            if (!sauce) return;
+            gameState.selectedSauce = sauceId;
+            initAudio();
+            playSound('pop');
+            renderDecorItems();
+            showToast(`เลือกเส้นซอส${sauce.name} — ลากนิ้วบนไอติมเพื่อวาดเส้นได้เลย!`);
+        }
+
+        function getActiveSauceMaterial() {
+            const sauce = SAUCES.find(s => s.id === gameState.selectedSauce) || SAUCES[0];
+            return new THREE.MeshPhysicalMaterial({
+                color: sauce.color,
+                roughness: 0.14,
+                metalness: 0.05,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.08
+            });
+        }
+
+        function startSauceRibbonStroke(worldPoint) {
+            if (gameState.servedScoops.length === 0) {
+                transferScoopToServingContainer();
+            }
+            const strokeGroup = new THREE.Group();
+            sauceStrokesContainer.add(strokeGroup);
+            gameState.currentSauceStrokeGroup = strokeGroup;
+            gameState.currentSauceStrokePoints = [];
+            gameState.sauceStrokes.push(strokeGroup);
+
+            appendSauceRibbonPoint(worldPoint);
+        }
+
+        function appendSauceRibbonPoint(worldPoint) {
+            if (!gameState.currentSauceStrokeGroup) return;
+            const localPt = servedIceCreamGroup.worldToLocal(worldPoint.clone());
+            const outward = new THREE.Vector3(localPt.x, 0.25, localPt.z).normalize().multiplyScalar(0.018);
+            localPt.add(outward);
+
+            const pts = gameState.currentSauceStrokePoints;
+            if (pts.length > 0 && pts[pts.length - 1].distanceTo(localPt) < 0.03) return;
+
+            pts.push(localPt.clone());
+            const mat = getActiveSauceMaterial();
+            const radius = 0.025;
+
+            const joint = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 10), mat);
+            joint.position.copy(localPt);
+            gameState.currentSauceStrokeGroup.add(joint);
+
+            if (pts.length >= 2) {
+                const p1 = pts[pts.length - 2];
+                const p2 = pts[pts.length - 1];
+                const dir = new THREE.Vector3().subVectors(p2, p1);
+                const len = dir.length();
+                if (len > 0.001) {
+                    const seg = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, len, 10), mat);
+                    seg.position.copy(p1).addScaledVector(dir, 0.5);
+                    seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+                    gameState.currentSauceStrokeGroup.add(seg);
+                }
+            }
+            playSound('drizzle');
+        }
+
+        function endSauceRibbonStroke() {
+            gameState.isDrizzlingSauce = false;
+            gameState.currentSauceStrokeGroup = null;
+            gameState.currentSauceStrokePoints = [];
+        }
+
+        let bottleAnimTimer = null;
+        function autoZigzagDrizzle() {
+            if (gameState.servedScoops.length === 0) {
+                transferScoopToServingContainer();
+            }
+            const sauce = SAUCES.find(s => s.id === gameState.selectedSauce) || SAUCES[0];
+            const mat = getActiveSauceMaterial();
+            const strokeGroup = new THREE.Group();
+            sauceStrokesContainer.add(strokeGroup);
+            gameState.sauceStrokes.push(strokeGroup);
+
+            gameState.servedScoops.forEach((sc, idx) => {
+                const curvePts = [];
+                const steps = 36;
+                const r = 0.53 * sc.scale;
+                for (let i = 0; i <= steps; i++) {
+                    const t = (i / steps) * 2 - 1;
+                    const xOff = t * r * 0.78;
+                    const zOff = Math.sin(t * Math.PI * 3.5) * r * 0.55;
+                    const distSq = xOff * xOff + zOff * zOff;
+                    const ySurface = Math.sqrt(Math.max(0.02, r * r - distSq));
+                    curvePts.push(new THREE.Vector3(
+                        sc.x + xOff,
+                        sc.y + ySurface + 0.015,
+                        sc.z + zOff
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(curvePts);
+                const tubeGeo = new THREE.TubeGeometry(curve, 48, 0.024, 10, false);
+                const ribbonMesh = new THREE.Mesh(tubeGeo, mat);
+                ribbonMesh.castShadow = true;
+                strokeGroup.add(ribbonMesh);
+
+                if (idx === gameState.servedScoops.length - 1) {
+                    sauceBottleGroup.visible = true;
+                    sauceBottleGroup.position.set(sc.x, servedIceCreamGroup.position.y + sc.y + 1.35, sc.z);
+                    sauceBottleGroup.children[0].material.color.set(sauce.color);
+                    sauceStreamMesh.material.color.set(sauce.color);
+                }
+            });
+
+            playSound('success');
+            showToast(`〰️ บีบเส้นซอส${sauce.name}ซิกแซกเรียบร้อย!`);
+
+            if (bottleAnimTimer) clearTimeout(bottleAnimTimer);
+            bottleAnimTimer = setTimeout(() => {
+                sauceBottleGroup.visible = false;
+            }, 850);
+        }
+
+        function undoLastSauceStroke() {
+            if (gameState.sauceStrokes.length === 0) {
+                showToast('ยังไม่มีเส้นซอสให้ลบ');
+                return;
+            }
+            const last = gameState.sauceStrokes.pop();
+            sauceStrokesContainer.remove(last);
+            playSound('pop');
+            showToast('ลบเส้นซอสล่าสุดแล้ว');
+        }
+
+        function create3DToppingMesh(topId) {
+            const g = new THREE.Group();
+            g.userData.isTopping = true;
+
+            if (topId === 'straw_half') {
+                const body = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.24, 16), new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.35 }));
+                body.rotation.x = Math.PI;
+                const leaf = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.02, 0.04, 8), new THREE.MeshStandardMaterial({ color: 0x16a34a }));
+                leaf.position.y = 0.12;
+                g.add(body, leaf);
+            } else if (topId === 'cherry') {
+                const berry = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshPhysicalMaterial({ color: 0xbe123c, roughness: 0.12, clearcoat: 1.0 }));
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+                stem.position.set(0.04, 0.16, 0);
+                stem.rotation.z = -0.35;
+                g.add(berry, stem);
+            } else if (topId === 'blueberry_top' || topId === 'boba') {
+                const col = topId === 'boba' ? 0x241006 : 0x3730a3;
+                g.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 14), new THREE.MeshStandardMaterial({ color: col, roughness: 0.25 })));
+            } else if (topId === 'banana_slice' || topId === 'kiwi' || topId === 'orange') {
+                const col = topId === 'banana_slice' ? 0xfef08a : (topId === 'kiwi' ? 0x65a30d : 0xf97316);
+                g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.045, 18), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 })));
+            } else if (topId === 'mango_cube' || topId === 'brownie' || topId === 'gold_leaf') {
+                const col = topId === 'mango_cube' ? 0xfbbf24 : (topId === 'brownie' ? 0x241006 : 0xfacc15);
+                const mat = topId === 'gold_leaf'
+                    ? new THREE.MeshStandardMaterial({ color: col, metalness: 0.9, roughness: 0.15 })
+                    : new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 });
+                g.add(new THREE.Mesh(new THREE.BoxGeometry(0.15, topId === 'gold_leaf' ? 0.02 : 0.13, 0.15), mat));
+            } else if (topId === 'pocky' || topId === 'wafer') {
+                const stick = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.032, 0.032, 0.65, 12),
+                    new THREE.MeshStandardMaterial({ color: topId === 'pocky' ? 0xf472b6 : 0x78350f, roughness: 0.45 })
+                );
+                stick.position.y = 0.25;
+                stick.rotation.z = 0.25;
+                g.add(stick);
+            } else if (topId === 'oreo') {
+                const c1 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 20), new THREE.MeshStandardMaterial({ color: 0x1c1917 }));
+                const cream = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.025, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                cream.position.y = 0.025;
+                const c2 = c1.clone();
+                c2.position.y = 0.05;
+                g.add(c1, cream, c2);
+                g.rotation.x = 0.6;
+            } else if (topId === 'macaron') {
+                const shellMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.4 });
+                const s1 = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.06, 20), shellMat);
+                const s2 = s1.clone();
+                s2.position.y = 0.08;
+                const fill = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.03, 20), new THREE.MeshStandardMaterial({ color: 0xfef3c7 }));
+                fill.position.y = 0.04;
+                g.add(s1, fill, s2);
+            } else if (topId === 'marshmallow') {
+                g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.18, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 })));
+            } else if (topId === 'donut') {
+                const base = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.055, 12, 24), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+                const glaze = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.057, 12, 24), new THREE.MeshStandardMaterial({ color: 0xec4899 }));
+                glaze.position.z = 0.01;
+                g.add(base, glaze);
+            } else if (topId === 'bear') {
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+                head.scale.set(1, 0.9, 0.45);
+                const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+                ear1.position.set(-0.09, 0.09, 0);
+                const ear2 = ear1.clone();
+                ear2.position.x = 0.09;
+                g.add(head, ear1, ear2);
+            } else if (topId === 'mint_leaf') {
+                const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshStandardMaterial({ color: 0x16a34a }));
+                leaf.scale.set(1.2, 0.18, 0.65);
+                g.add(leaf);
+            } else {
+                const colors = [0xec4899, 0x38bdf8, 0xfacc15, 0x4ade80, 0xa855f7];
+                const col = topId === 'choc_chips' ? 0x241006 : (topId === 'almond' ? 0xfde68a : (topId === 'coconut' ? 0xffffff : colors[Math.floor(Math.random() * colors.length)]));
+                for (let k = 0; k < 5; k++) {
+                    const piece = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.018, 0.018, 0.09, 8),
+                        new THREE.MeshStandardMaterial({ color: col })
+                    );
+                    piece.position.set((Math.random() - 0.5) * 0.22, 0.02, (Math.random() - 0.5) * 0.22);
+                    piece.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI);
+                    g.add(piece);
+                }
+            }
+            return g;
+        }
+
+        function place3DToppingAtHit(worldPoint, normal, hitMesh) {
+            const topObj = create3DToppingMesh(gameState.selectedTopping);
+            const localPos = servedIceCreamGroup.worldToLocal(worldPoint.clone());
+            topObj.position.copy(localPos);
+
+            const worldNormal = normal.clone().transformDirection(hitMesh.matrixWorld).normalize();
+            topObj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
+
+            toppingsContainer.add(topObj);
+            playSound('pop');
+        }
+
+        function autoSprinkleToppings() {
+            if (gameState.servedScoops.length === 0) transferScoopToServingContainer();
+            const topScoop = gameState.servedScoops[gameState.servedScoops.length - 1];
+            for (let i = 0; i < 6; i++) {
+                const topObj = create3DToppingMesh(gameState.selectedTopping);
+                const phi = 0.25 + Math.random() * 0.65;
+                const theta = (i / 6) * Math.PI * 2 + Math.random() * 0.4;
+                const r = 0.51 * topScoop.scale;
+                topObj.position.set(
+                    topScoop.x + Math.sin(phi) * Math.cos(theta) * r,
+                    topScoop.y + Math.cos(phi) * r,
+                    topScoop.z + Math.sin(phi) * Math.sin(theta) * r
+                );
+                const norm = new THREE.Vector3(
+                    Math.sin(phi) * Math.cos(theta),
+                    Math.cos(phi),
+                    Math.sin(phi) * Math.sin(theta)
+                ).normalize();
+                topObj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), norm);
+                toppingsContainer.add(topObj);
+            }
+            playSound('success');
+            showToast('✨ โรยท็อปปิ้งรอบลูกไอศกรีมแล้ว!');
+        }
+
+        function clearAllToppings() {
+            while (toppingsContainer.children.length > 0) {
+                toppingsContainer.remove(toppingsContainer.children[0]);
+            }
+            playSound('pop');
+            showToast('ล้างท็อปปิ้งออกหมดแล้ว');
+        }
+
+        /**
+         * ============================================================================
+         * 9. POINTER & RAYCASTING INTERACTIONS
+         * ============================================================================
+         */
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let downCoords = { x: 0, y: 0 };
+
+        function updatePointer(e) {
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function setupPointerInteractions() {
+            const dom = renderer.domElement;
+
+            dom.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                camOrbit.targetRadius = THREE.MathUtils.clamp(camOrbit.targetRadius + e.deltaY * 0.006, 4.2, 15.0);
+            }, { passive: false });
+
+            dom.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    camOrbit.isOrbitDragging = false;
+                    camOrbit.pinchStartDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    camOrbit.pinchStartRadius = camOrbit.targetRadius;
+                }
+            }, { passive: true });
+
+            dom.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2 && camOrbit.pinchStartDist > 0) {
+                    const dist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const scale = camOrbit.pinchStartDist / Math.max(10, dist);
+                    camOrbit.targetRadius = THREE.MathUtils.clamp(camOrbit.pinchStartRadius * scale, 4.2, 15.0);
+                }
+            }, { passive: true });
+
+            dom.addEventListener('pointerdown', (e) => {
+                initAudio();
+                downCoords = { x: e.clientX, y: e.clientY };
+                camOrbit.prevPointer = { x: e.clientX, y: e.clientY };
+                updatePointer(e);
+
+                let captured = false;
+
+                if (gameState.stage === 1 && gameState.addedIngredients.length > 0) {
+                    raycaster.setFromCamera(pointer, camera);
+                    if (raycaster.intersectObject(bowlLiquidMesh).length > 0) {
+                        captured = true;
+                        startStirring();
+                    }
+                }
+
+                if (gameState.stage === 3 && gelatoPanRootGroup.visible) {
+                    raycaster.setFromCamera(pointer, camera);
+                    const panHits = raycaster.intersectObject(gelatoPanSurfaceMesh);
+                    if (panHits.length > 0) {
+                        captured = true;
+                        gameState.isDraggingScoop = true;
+                        gameState.lastScoopWorldPos = panHits[0].point.clone();
+                        scoopToolGroup.position.set(panHits[0].point.x, panHits[0].point.y + 0.05, panHits[0].point.z);
+                        scoopToolGroup.rotation.z = -0.35;
+                    }
+                }
+
+                if (gameState.stage === 4 && !gameState.isPhotoMode && gameState.decorTab === 'syrup') {
+                    raycaster.setFromCamera(pointer, camera);
+                    const hits = raycaster.intersectObjects(getScoopTargets(), false);
+                    if (hits.length > 0) {
+                        captured = true;
+                        gameState.isDrizzlingSauce = true;
+                        startSauceRibbonStroke(hits[0].point);
+                    }
+                }
+
+                if (!captured) {
+                    camOrbit.isOrbitDragging = true;
+                }
+            });
+
+            dom.addEventListener('pointermove', (e) => {
+                updatePointer(e);
+
+                if (camOrbit.isOrbitDragging) {
+                    const dx = e.clientX - camOrbit.prevPointer.x;
+                    const dy = e.clientY - camOrbit.prevPointer.y;
+                    camOrbit.prevPointer = { x: e.clientX, y: e.clientY };
+                    camOrbit.targetTheta -= dx * 0.0085;
+                    camOrbit.targetPhi = THREE.MathUtils.clamp(camOrbit.targetPhi - dy * 0.0075, 0.25, 1.42);
+                }
+
+                if (gameState.stage === 3 && gelatoPanRootGroup.visible) {
+                    raycaster.setFromCamera(pointer, camera);
+                    const hits = raycaster.intersectObject(gelatoPanSurfaceMesh);
+                    if (hits.length > 0) {
+                        const pt = hits[0].point;
+                        if (gameState.isDraggingScoop) {
+                            scoopToolGroup.position.lerp(new THREE.Vector3(pt.x, pt.y + 0.04, pt.z), 0.45);
+                            if (gameState.lastScoopWorldPos) {
+                                const d = pt.distanceTo(gameState.lastScoopWorldPos);
+                                if (d > 0.015) {
+                                    carveGelatoAndGrowScoop(pt, d);
+                                    gameState.lastScoopWorldPos.copy(pt);
+                                }
+                            }
+                        } else {
+                            scoopToolGroup.position.lerp(new THREE.Vector3(pt.x, pt.y + 0.35, pt.z), 0.35);
+                        }
+                    }
+                }
+
+                if (gameState.stage === 4 && gameState.isDrizzlingSauce && gameState.decorTab === 'syrup') {
+                    raycaster.setFromCamera(pointer, camera);
+                    const hits = raycaster.intersectObjects(getScoopTargets(), false);
+                    if (hits.length > 0) {
+                        appendSauceRibbonPoint(hits[0].point);
+                    }
+                }
+            });
+
+            dom.addEventListener('pointerup', (e) => {
+                const moveDist = Math.hypot(e.clientX - downCoords.x, e.clientY - downCoords.y);
+                camOrbit.isOrbitDragging = false;
+
+                if (gameState.stage === 1) stopStirring();
+                if (gameState.stage === 4 && gameState.isDrizzlingSauce) {
+                    endSauceRibbonStroke();
+                }
+
+                if (gameState.stage === 3) {
+                    if (gameState.isDraggingScoop) {
+                        gameState.isDraggingScoop = false;
+                        scoopToolGroup.rotation.z = -0.15;
+                        if (gameState.scoopFillAmount >= 0.70) {
+                            transferScoopToServingContainer();
+                        } else if (gameState.scoopFillAmount > 0.04) {
+                            showToast('ลากบนถาดให้ครบ 70% ขึ้นไป เพื่อให้ม้วนเป็นลูกกลมสวย!');
+                        }
+                    } else if (moveDist < 12) {
+                        raycaster.setFromCamera(pointer, camera);
+                        const hits = raycaster.intersectObjects(getScoopTargets(), false);
+                        if (hits.length > 0 && typeof hits[0].object.userData.scoopIndex === 'number') {
+                            const idx = hits[0].object.userData.scoopIndex;
+                            selectScoopForEdit(idx);
+                            playSound('pop');
+                            showToast(`เลือกลูกที่ ${idx + 1} — กดปุ่มเลื่อนซ้าย/ขวา/ขึ้น/ลง หรือลบทิ้งได้เลย`);
+                        }
+                    }
+                }
+
+                if (gameState.stage === 4 && !gameState.isPhotoMode && gameState.decorTab === 'topping' && moveDist < 14) {
+                    raycaster.setFromCamera(pointer, camera);
+                    const hits = raycaster.intersectObjects(getScoopTargets(), false);
+                    if (hits.length > 0) {
+                        place3DToppingAtHit(hits[0].point, hits[0].face.normal, hits[0].object);
+                    }
+                }
+            });
+        }
+
+        function getScoopTargets() {
+            const list = [];
+            servedIceCreamGroup.traverse(c => {
+                if (c.isMesh && c.userData.isScoopSurface) list.push(c);
+            });
+            return list;
+        }
+
+        /**
+         * ============================================================================
+         * 10. UI RENDERING & STAGE NAVIGATION
+         * ============================================================================
+         */
+        let toastTimeout = null;
+        function showToast(msg) {
+            const banner = document.getElementById('toast-banner');
+            document.getElementById('toast-text').textContent = msg;
+            banner.classList.remove('opacity-0', '-translate-y-2');
+            banner.classList.add('opacity-100', 'translate-y-0');
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                banner.classList.remove('opacity-100', 'translate-y-0');
+                banner.classList.add('opacity-0', '-translate-y-2');
+            }, 2200);
+        }
+
+        function switchMixTab(cat) {
+            gameState.mixTab = cat;
+            ['base', 'choc', 'fruit', 'tea'].forEach(c => {
+                const btn = document.getElementById(`mix-tab-${c}`);
+                btn.className = c === cat
+                    ? 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-500 text-white whitespace-nowrap'
+                    : 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap';
+            });
+            renderIngredientList();
+        }
+
+        function renderIngredientList() {
+            const list = document.getElementById('ingredient-list');
+            const items = INGREDIENTS.filter(i => i.cat === gameState.mixTab);
+            list.innerHTML = items.map(ing => `
+                <button onclick="addIngredient('${ing.id}')" class="btn-tap flex-shrink-0 px-3 py-1.5 rounded-2xl bg-white border border-pink-100 shadow-sm flex items-center gap-1.5">
+                    <span class="text-base">${ing.emoji}</span>
+                    <span class="text-xs font-semibold text-slate-700">${ing.name}</span>
+                </button>
+            `).join('');
+        }
+
+        function renderStage3Containers() {
+            const list = document.getElementById('stage3-container-list');
+            list.innerHTML = CONTAINERS.map(c => `
+                <button onclick="selectContainer('${c.id}')"
+                    class="btn-tap flex-shrink-0 px-2.5 py-1 rounded-xl bg-white border border-pink-100 text-[11px] font-semibold flex items-center gap-1 ${gameState.containerType === c.id ? 'item-active' : ''}">
+                    <span>${c.emoji}</span><span>${c.name}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectContainer(id) {
+            gameState.containerType = id;
+            playSound('pop');
+            buildServingContainer(id);
+            renderStage3Containers();
+            if (gameState.stage === 4 && gameState.decorTab === 'container') renderDecorItems();
+            const found = CONTAINERS.find(c => c.id === id);
+            if (found) showToast(`เปลี่ยนภาชนะเป็น ${found.name} แล้ว!`);
+        }
+
+        function switchDecorTab(tab) {
+            gameState.decorTab = tab;
+            ['syrup', 'topping', 'container'].forEach(t => {
+                const btn = document.getElementById(`decor-tab-${t}`);
+                btn.className = t === tab
+                    ? 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-500 text-white whitespace-nowrap'
+                    : 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-pink-100 text-pink-700 whitespace-nowrap';
+            });
+
+            document.getElementById('topping-subtabs').classList.toggle('hidden', tab !== 'topping');
+            document.getElementById('sauce-tools-group').classList.toggle('hidden', tab !== 'syrup');
+            document.getElementById('topping-tools-group').classList.toggle('hidden', tab !== 'topping');
+
+            const hint = document.getElementById('decor-hint-text');
+            if (tab === 'syrup') hint.textContent = 'ลากนิ้วบนไอติมเพื่อวาดเส้นซอส 3D หรือกด "บีบเส้นซิกแซก"';
+            else if (tab === 'topping') hint.textContent = 'เลือกท็อปปิ้ง แล้วแตะจุดที่ต้องการบนไอติม 3D';
+            else hint.textContent = 'เลือกภาชนะหรือขนมปังเสิร์ฟได้ทันที';
+
+            renderDecorItems();
+        }
+
+        function switchToppingSubTab(sub) {
+            gameState.toppingSubTab = sub;
+            ['fruit', 'bakery', 'crunch'].forEach(s => {
+                const btn = document.getElementById(`top-sub-${s}`);
+                btn.className = s === sub
+                    ? 'px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-500 text-white whitespace-nowrap'
+                    : 'px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-rose-100 text-rose-700 whitespace-nowrap';
+            });
+            renderDecorItems();
+        }
+
+        function renderDecorItems() {
+            const list = document.getElementById('decor-items-list');
+            if (gameState.decorTab === 'syrup') {
+                list.innerHTML = SAUCES.map(s => `
+                    <button onclick="selectSauce('${s.id}')"
+                        class="btn-tap flex-shrink-0 px-3 py-1.5 rounded-2xl bg-white border border-pink-100 shadow-sm flex items-center gap-1.5 ${gameState.selectedSauce === s.id ? 'item-active' : ''}">
+                        <span class="text-base">${s.emoji}</span>
+                        <span class="text-xs font-semibold text-slate-700">${s.name}</span>
+                    </button>
+                `).join('');
+            } else if (gameState.decorTab === 'topping') {
+                const items = TOPPINGS.filter(t => t.sub === gameState.toppingSubTab);
+                list.innerHTML = items.map(t => `
+                    <button onclick="selectTopping('${t.id}')"
+                        class="btn-tap flex-shrink-0 px-3 py-1.5 rounded-2xl bg-white border border-pink-100 shadow-sm flex items-center gap-1.5 ${gameState.selectedTopping === t.id ? 'item-active' : ''}">
+                        <span class="text-base">${t.emoji}</span>
+                        <span class="text-xs font-semibold text-slate-700">${t.name}</span>
+                    </button>
+                `).join('');
+            } else {
+                list.innerHTML = CONTAINERS.map(c => `
+                    <button onclick="selectContainer('${c.id}')"
+                        class="btn-tap flex-shrink-0 px-3 py-1.5 rounded-2xl bg-white border border-pink-100 shadow-sm flex items-center gap-1.5 ${gameState.containerType === c.id ? 'item-active' : ''}">
+                        <span class="text-base">${c.emoji}</span>
+                        <span class="text-xs font-semibold text-slate-700">${c.name}</span>
+                    </button>
+                `).join('');
+            }
+        }
+
+        function selectTopping(id) {
+            gameState.selectedTopping = id;
+            playSound('pop');
+            renderDecorItems();
+            const found = TOPPINGS.find(t => t.id === id);
+            if (found) showToast(`เลือก ${found.name} แล้ว แตะบนไอศกรีมเพื่อแปะได้เลย!`);
+        }
+
+        function goToStage(num) {
+            gameState.stage = num;
+            playSound('pop');
+
+            [1, 2, 3, 4].forEach(s => {
+                document.getElementById(`panel-stage-${s}`).classList.toggle('hidden', s !== num);
+                const pill = document.getElementById(`step-pill-${s}`);
+                if (s === num) {
+                    pill.className = 'py-1 px-1 rounded-xl bg-pink-500 text-white shadow-sm transition-all';
+                } else {
+                    pill.className = 'py-1 px-1 rounded-xl text-slate-500 transition-all';
+                }
+            });
+
+            if (num === 2) {
+                chillerPanLiquidMesh.material.color.copy(gameState.blendedColor);
+                gameState.freezeProgress = 0;
+                updateFreezeUI();
+            } else if (num === 3) {
+                gelatoPanSurfaceMesh.material.color.copy(gameState.blendedColor);
+                growingScoopBallMesh.material.color.copy(gameState.blendedColor);
+                refreshPanFlavorDetails();
+                smoothGelatoPan();
+                renderStage3Containers();
+                updateTargetSlotMarkerPosition();
+                if (gameState.servedScoops.length > 0 && gameState.selectedScoopIndex < 0) {
+                    selectScoopForEdit(gameState.servedScoops.length - 1);
+                }
+            } else if (num === 4) {
+                if (gameState.servedScoops.length === 0) {
+                    transferScoopToServingContainer();
+                }
+                switchDecorTab('syrup');
+                showToast('เก็บถาดไอศกรีมเรียบร้อย! แต่งหน้าซอสเส้นและท็อปปิ้งได้เต็มตาเลย ✨');
+            }
+
+            activateStageVisuals(num);
+        }
+
+        function enterPhotoMode() {
+            gameState.isPhotoMode = true;
+            document.getElementById('top-ui').classList.add('hidden');
+            document.getElementById('bottom-ui').classList.add('hidden');
+            document.getElementById('photo-mode-ui').classList.remove('hidden');
+            playSound('pop');
+        }
+
+        function exitPhotoMode() {
+            gameState.isPhotoMode = false;
+            document.getElementById('top-ui').classList.remove('hidden');
+            document.getElementById('bottom-ui').classList.remove('hidden');
+            document.getElementById('photo-mode-ui').classList.add('hidden');
+            playSound('pop');
+        }
+
+        function captureSnapshot() {
+            playSound('camera');
+            renderer.render(scene, camera);
+            const dataUrl = renderer.domElement.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `sweet-scoop-3d-${Date.now()}.png`;
+            link.href = dataUrl;
+            link.click();
+            showToast('📸 บันทึกรูปภาพไอศกรีม 3D เรียบร้อยแล้ว!');
+        }
+
+        function showResetModal(show) {
+            document.getElementById('reset-modal').classList.toggle('hidden', !show);
+        }
+
+        function resetEntireGame() {
+            showResetModal(false);
+            clearBowl();
+            gameState.servedScoops.forEach(s => servedIceCreamGroup.remove(s.meshGroup));
+            gameState.servedScoops = [];
+            gameState.selectedScoopIndex = -1;
+            gameState.scoopFillAmount = 0;
+            while (sauceStrokesContainer.children.length > 0) {
+                sauceStrokesContainer.remove(sauceStrokesContainer.children[0]);
+            }
+            gameState.sauceStrokes = [];
+            clearAllToppings();
+            document.getElementById('scoop-count-text').textContent = '0';
+            document.getElementById('scoop-editor-bar').classList.add('hidden');
+            goToStage(1);
+            showToast('เริ่มทำไอศกรีมถ้วยใหม่กันเลย!');
+        }
+
+        /**
+         * ============================================================================
+         * 11. MAIN ANIMATION LOOP
+         * ============================================================================
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const t = Date.now() * 0.004;
+
+            if (gameState.stage === 1 && gameState.isStirring && gameState.addedIngredients.length > 0) {
+                whiskGroup.rotation.y += 0.34;
+                whiskGroup.position.x = Math.cos(Date.now() * 0.012) * 0.4;
+                whiskGroup.position.z = Math.sin(Date.now() * 0.012) * 0.4;
+                mixChunksGroup.rotation.y += 0.08;
+
+                gameState.mixProgress = Math.min(100, gameState.mixProgress + 1.0);
+                updateMixUI();
+                playSound('whisk');
+            }
+
+            if (gameState.stage === 2 && gameState.isFreezing) {
+                gameState.freezeProgress = Math.min(100, gameState.freezeProgress + 1.1);
+                updateFreezeUI();
+                playSound('freeze');
+                vaporParticles.forEach(p => {
+                    p.position.y += p.userData.speed;
+                    if (p.position.y > 1.9) p.position.y = 0.7;
+                });
+            }
+
+            // Mechanical Trigger Scoop squeeze & sweeper blade animation
+            if (gameState.scoopTriggerAngle > 0.001) {
+                gameState.scoopTriggerAngle *= 0.84;
+                scoopTriggerLeverGroup.rotation.z = -gameState.scoopTriggerAngle * 0.42;
+                scoopSweeperBladeMesh.rotation.z = gameState.scoopTriggerAngle * 2.4;
+            } else {
+                scoopTriggerLeverGroup.rotation.z = 0;
+                scoopSweeperBladeMesh.rotation.z = 0;
+            }
+
+            // Smooth retraction & hiding of gelato pan and scoop when entering Stage 4
+            if (gameState.stage === 4) {
+                if (gameState.panHideProgress < 1) {
+                    gameState.panHideProgress = Math.min(1, gameState.panHideProgress + 0.085);
+                    const ease = 1 - Math.pow(1 - gameState.panHideProgress, 3);
+                    gelatoPanRootGroup.position.x = -1.18 - ease * 3.8;
+                    gelatoPanRootGroup.scale.setScalar(Math.max(0.001, 1 - ease * 0.75));
+                    scoopToolGroup.position.y = 1.05 + ease * 3.2;
+                    scoopToolGroup.scale.setScalar(Math.max(0.001, 1 - ease * 0.75));
+                    if (gameState.panHideProgress >= 1) {
+                        gelatoPanRootGroup.visible = false;
+                        scoopToolGroup.visible = false;
+                    }
+                }
+            } else if (gameState.stage === 3) {
+                gelatoPanRootGroup.visible = true;
+                scoopToolGroup.visible = true;
+                gelatoPanRootGroup.position.x += (-1.18 - gelatoPanRootGroup.position.x) * 0.2;
+                gelatoPanRootGroup.scale.lerp(new THREE.Vector3(1, 1, 1), 0.2);
+                scoopToolGroup.scale.lerp(new THREE.Vector3(1, 1, 1), 0.2);
+            }
+
+            if (gameState.stage === 3 && targetSlotMarkerMesh.visible) {
+                const pulse = 1 + Math.sin(t * 2.2) * 0.08;
+                targetSlotMarkerMesh.scale.set(pulse, pulse, 1);
+            }
+
+            if (gameState.stage === 4 && !gameState.isDrizzlingSauce) {
+                servingStandGroup.rotation.y = Math.sin(Date.now() * 0.0008) * 0.14;
+            } else if (gameState.stage === 3) {
+                servingStandGroup.rotation.y = 0;
+            }
+
+            updateCameraFromOrbit(false);
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderIngredientList();
+            initThreeJS();
+            animate();
+            showToast('🍓 เลือกเบสครีมและรสชาติใส่ชามแล้วกดค้างคนส่วนผสมได้เลย!');
+        });
+    </script>
+</body>
+</html>
